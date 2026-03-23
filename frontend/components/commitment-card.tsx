@@ -52,11 +52,32 @@ export function CommitmentCard({
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const latestVerification = commitment.verifications[0] ?? null;
   const latestEvidence = commitment.evidences[0] ?? null;
+  const latestInitialVerification =
+    commitment.verifications.find((verification) => verification.type === "INITIAL") ?? null;
+
+  /*
+   * This block derives appeal eligibility from the latest failed initial verification and the evidence timeline.
+   * It is important because the demo should not let the user consume the on-chain appeal path when backend policy would reject it.
+   */
+  const appealAllowedByConfidence =
+    latestInitialVerification !== null &&
+    !latestInitialVerification.result &&
+    latestInitialVerification.confidence < 0.6;
+  const hasNewEvidenceForAppeal =
+    latestInitialVerification !== null &&
+    commitment.evidences.some(
+      (evidence) =>
+        evidence.id !== latestInitialVerification.evidenceId &&
+        new Date(evidence.createdAt).getTime() >
+          new Date(latestInitialVerification.createdAt).getTime()
+    );
   const canVerify = commitment.status === "ACTIVE" && !commitment.isProcessing;
   const canAppeal =
     commitment.status === "FAILED_PENDING_APPEAL" &&
     !commitment.appealed &&
-    !commitment.isProcessing;
+    !commitment.isProcessing &&
+    appealAllowedByConfidence &&
+    hasNewEvidenceForAppeal;
   const canResolveAppeal =
     commitment.status === "FAILED_PENDING_APPEAL" &&
     commitment.appealed &&
@@ -67,6 +88,14 @@ export function CommitmentCard({
     !commitment.isProcessing &&
     commitment.appealWindowEndsAt !== null &&
     new Date(commitment.appealWindowEndsAt).getTime() <= Date.now();
+  const appealHint =
+    commitment.status === "FAILED_PENDING_APPEAL" && !commitment.appealed
+      ? !appealAllowedByConfidence
+        ? "Appeal disabled because the failed verification was considered clear (confidence >= 0.6)."
+        : !hasNewEvidenceForAppeal
+          ? "Upload new evidence after the failed verification to enable appeal."
+          : null
+      : null;
 
   /**
    * This function runs one card action and maps any thrown error into local UI feedback.
@@ -135,6 +164,13 @@ export function CommitmentCard({
           <p>No verification has been stored for this commitment yet.</p>
         </div>
       )}
+
+      {appealHint !== null ? (
+        <div className="detail-box">
+          <strong>Appeal policy</strong>
+          <p>{appealHint}</p>
+        </div>
+      ) : null}
 
       <div className="evidence-row">
         <input

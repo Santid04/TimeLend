@@ -55,6 +55,15 @@ export function createCommitmentRouter(
     }),
     asyncHandler(dependencies.commitmentController.finalizeFailed)
   );
+  router.post(
+    "/:id/finalize",
+    dependencies.requireInternal,
+    validateCompositeRequest({
+      body: finalizeFailedBodySchema,
+      params: commitmentIdParamsSchema
+    }),
+    asyncHandler(dependencies.commitmentController.finalizeFailed)
+  );
 
   router.use(dependencies.authenticate);
 

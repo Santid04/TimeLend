@@ -31,3 +31,8 @@ pnpm dev
 - [Arquitectura](./docs/architecture/overview.md)
 - [Flujo del sistema](./docs/architecture/system-flow.md)
 - [Setup local](./docs/development/setup.md)
+
+# Tareas a realizar
+- Mostrar avisos de "Cargar evidencia" cuando se pueda apelar
+- Mover base de datos, urls, y todo lo necesario para que la pagina no corra localmente
+- Realizar la pagina con v0

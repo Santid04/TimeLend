@@ -24,6 +24,8 @@ import type { AiService } from "./ai.service";
 import type { ContractService } from "./contract.service";
 import type { EvidenceService } from "./evidence.service";
 
+const UNCERTAIN_FAILURE_CONFIDENCE_THRESHOLD = 0.6;
+
 const commitmentInclude = {
   events: {
     orderBy: {
@@ -461,6 +463,24 @@ export class CommitmentService {
       throw new AppError(409, "APPEAL_ALREADY_RECORDED", "This commitment already recorded an appeal.");
     }
 
+    const latestInitialVerification = this.getLatestInitialVerification(commitment);
+
+    if (!this.isAppealAllowedForFailedVerification(latestInitialVerification.confidence)) {
+      throw new AppError(
+        409,
+        "APPEAL_NOT_ALLOWED",
+        "Appeals are only available for uncertain failed verifications."
+      );
+    }
+
+    if (!this.hasNewEvidenceForAppeal(commitment, latestInitialVerification)) {
+      throw new AppError(
+        409,
+        "APPEAL_REQUIRES_NEW_EVIDENCE",
+        "Upload new evidence before appealing this commitment."
+      );
+    }
+
     const onChainCommitment = await this.contractService.getCommitmentOnChain(commitment.onchainId);
 
     if (onChainCommitment.status !== 2 || !onChainCommitment.appealed) {
@@ -504,6 +524,7 @@ export class CommitmentService {
     const commitment = await this.getCommitmentById(commitmentId);
     this.assertAppealResolutionEligibility(commitment);
     this.getLatestEvidence(commitment);
+    this.assertAppealHasRequiredEvidence(commitment);
 
     await this.acquireProcessingLock(commitment.id, [CommitmentStatus.FAILED_PENDING_APPEAL]);
     try {
@@ -537,9 +558,12 @@ export class CommitmentService {
    */
   async finalizeFailedCommitment(commitmentId: string): Promise<PresentedCommitment> {
     const commitment = await this.getCommitmentById(commitmentId);
-    this.assertFailedFinalizationEligibility(commitment);
+    await this.assertFailedFinalizationEligibility(commitment);
 
-    await this.acquireProcessingLock(commitment.id, [CommitmentStatus.FAILED_PENDING_APPEAL]);
+    await this.acquireProcessingLock(commitment.id, [
+      CommitmentStatus.FAILED_PENDING_APPEAL,
+      CommitmentStatus.FAILED_FINAL
+    ]);
     return this.runFailedFinalization(commitment.id);
   }
 
@@ -550,24 +574,39 @@ export class CommitmentService {
    * It is important because background maintenance should keep failed commitments progressing to FAILED_FINAL.
    */
   async finalizeExpiredFailures() {
+    const clearFailureReadyAt = await this.getClearFailureReadyAtCutoff();
     const expiredCommitments = await prisma.commitment.findMany({
       orderBy: {
-        appealWindowEndsAt: "asc"
+        failureMarkedAt: "asc"
       },
       take: 25,
       where: {
-        appealWindowEndsAt: {
-          lte: new Date()
-        },
         appealed: false,
+        finalizeFailedTxHash: null,
         isProcessing: false,
-        status: CommitmentStatus.FAILED_PENDING_APPEAL
+        OR: [
+          {
+            appealWindowEndsAt: {
+              lte: new Date()
+            },
+            status: CommitmentStatus.FAILED_PENDING_APPEAL
+          },
+          {
+            failureMarkedAt: {
+              lte: clearFailureReadyAt
+            },
+            status: CommitmentStatus.FAILED_FINAL
+          }
+        ]
       }
     });
 
     for (const commitment of expiredCommitments) {
       try {
-        await this.acquireProcessingLock(commitment.id, [CommitmentStatus.FAILED_PENDING_APPEAL]);
+        await this.acquireProcessingLock(commitment.id, [
+          CommitmentStatus.FAILED_PENDING_APPEAL,
+          CommitmentStatus.FAILED_FINAL
+        ]);
         await this.runFailedFinalization(commitment.id);
       } catch (error) {
         logger.error(
@@ -681,25 +720,34 @@ export class CommitmentService {
         return;
       }
 
+      const appealAllowed = this.isAppealAllowedForFailedVerification(decision.confidence);
       const resolution = await this.contractService.markFailedOnChain(commitment.onchainId);
+      const targetStatus = appealAllowed
+        ? CommitmentStatus.FAILED_PENDING_APPEAL
+        : CommitmentStatus.FAILED_FINAL;
 
       await prisma.commitment.update({
         data: {
-          appealWindowEndsAt: resolution.appealWindowEndsAt ?? null,
+          ...(appealAllowed
+            ? {
+                appealWindowEndsAt: resolution.appealWindowEndsAt ?? null
+              }
+            : {}),
           failureMarkedAt: new Date(),
           isProcessing: false,
           markFailedTxHash: resolution.txHash,
           processingStartedAt: null,
-          status: CommitmentStatus.FAILED_PENDING_APPEAL,
+          status: targetStatus,
           events: {
             create: {
               fromStatus: CommitmentStatus.ACTIVE,
               metadata: {
+                appealAllowed,
                 confidence: decision.confidence,
                 reasoning: decision.reasoning,
                 verificationId: verification.id
               },
-              toStatus: CommitmentStatus.FAILED_PENDING_APPEAL,
+              toStatus: targetStatus,
               txHash: resolution.txHash,
               type: CommitmentEventType.VERIFIED_FAILED
             }
@@ -712,11 +760,14 @@ export class CommitmentService {
 
       logger.info(
         {
+          appealAllowed,
           commitmentId: commitment.id,
+          confidence: decision.confidence,
           onchainId: commitment.onchainId.toString(),
+          targetStatus,
           txHash: resolution.txHash
         },
-        "Commitment moved to failed pending appeal"
+        "Commitment moved to failed state after initial verification"
       );
     } catch (error) {
       logger.error({ commitmentId, error }, "Initial verification job failed");
@@ -857,7 +908,12 @@ export class CommitmentService {
       const commitment = await this.getCommitmentById(commitmentId);
       lockedCommitmentId = commitment.id;
 
-      if (commitment.status !== CommitmentStatus.FAILED_PENDING_APPEAL || commitment.appealed) {
+      if (
+        (commitment.status !== CommitmentStatus.FAILED_PENDING_APPEAL &&
+          commitment.status !== CommitmentStatus.FAILED_FINAL) ||
+        commitment.appealed ||
+        commitment.finalizeFailedTxHash !== null
+      ) {
         throw new AppError(
           409,
           "FAILED_FINALIZATION_NOT_ALLOWED",
@@ -865,7 +921,9 @@ export class CommitmentService {
         );
       }
 
-      if (commitment.appealWindowEndsAt !== null && commitment.appealWindowEndsAt > new Date()) {
+      const finalizationReadyAt = await this.getCommitmentFinalizationReadyAt(commitment);
+
+      if (finalizationReadyAt !== null && finalizationReadyAt > new Date()) {
         throw new AppError(
           409,
           "FAILED_FINALIZATION_TOO_EARLY",
@@ -883,7 +941,7 @@ export class CommitmentService {
           status: CommitmentStatus.FAILED_FINAL,
           events: {
             create: {
-              fromStatus: CommitmentStatus.FAILED_PENDING_APPEAL,
+              fromStatus: commitment.status,
               toStatus: CommitmentStatus.FAILED_FINAL,
               txHash: resolution.txHash,
               type: CommitmentEventType.FAILED_FINALIZED
@@ -1134,17 +1192,46 @@ export class CommitmentService {
   }
 
   /**
+   * This function validates that an appealed commitment still satisfies the evidence rules required for appeal review.
+   * It receives the hydrated commitment aggregate already loaded from persistence.
+   * It returns nothing and throws when the appeal does not qualify for re-evaluation.
+   * It is important because appeal resolution should only run for uncertain failures backed by newly uploaded evidence.
+   */
+  private assertAppealHasRequiredEvidence(commitment: CommitmentRecord) {
+    const latestInitialVerification = this.getLatestInitialVerification(commitment);
+
+    if (!this.isAppealAllowedForFailedVerification(latestInitialVerification.confidence)) {
+      throw new AppError(
+        409,
+        "APPEAL_NOT_ALLOWED",
+        "Appeals are only available for uncertain failed verifications."
+      );
+    }
+
+    if (!this.hasNewEvidenceForAppeal(commitment, latestInitialVerification)) {
+      throw new AppError(
+        409,
+        "APPEAL_REQUIRES_NEW_EVIDENCE",
+        "Appeal resolution requires new evidence uploaded after the initial failed verification."
+      );
+    }
+  }
+
+  /**
    * This function asserts that a commitment is ready for failed finalization.
    * It receives the hydrated commitment aggregate.
    * It returns nothing and throws when the commitment is not eligible.
    * It is important because only expired, unappealed failed commitments can move to FAILED_FINAL.
    */
-  private assertFailedFinalizationEligibility(commitment: CommitmentRecord) {
-    if (commitment.status !== CommitmentStatus.FAILED_PENDING_APPEAL) {
+  private async assertFailedFinalizationEligibility(commitment: CommitmentRecord) {
+    if (
+      commitment.status !== CommitmentStatus.FAILED_PENDING_APPEAL &&
+      commitment.status !== CommitmentStatus.FAILED_FINAL
+    ) {
       throw new AppError(
         409,
         "FAILED_FINALIZATION_NOT_ALLOWED",
-        "Only failed commitments pending appeal can be finalized."
+        "Only failed commitments awaiting definitive settlement can be finalized."
       );
     }
 
@@ -1164,7 +1251,17 @@ export class CommitmentService {
       );
     }
 
-    if (commitment.appealWindowEndsAt !== null && commitment.appealWindowEndsAt > new Date()) {
+    if (commitment.finalizeFailedTxHash !== null) {
+      throw new AppError(
+        409,
+        "FAILED_FINALIZATION_NOT_ALLOWED",
+        "This commitment was already finalized."
+      );
+    }
+
+    const finalizationReadyAt = await this.getCommitmentFinalizationReadyAt(commitment);
+
+    if (finalizationReadyAt !== null && finalizationReadyAt > new Date()) {
       throw new AppError(
         409,
         "FAILED_FINALIZATION_TOO_EARLY",
@@ -1288,6 +1385,86 @@ export class CommitmentService {
     }
 
     return latestEvidence;
+  }
+
+  /**
+   * This function returns the latest initial verification stored for a commitment.
+   * It receives the hydrated commitment aggregate already loaded with verification history.
+   * It returns the most recent INITIAL verification row.
+   * It is important because appeal eligibility now depends on the outcome and confidence of the initial failed decision.
+   */
+  private getLatestInitialVerification(commitment: CommitmentRecord) {
+    const latestInitialVerification = commitment.verifications.find(
+      (verification) => verification.type === VerificationType.INITIAL
+    );
+
+    if (latestInitialVerification === undefined || latestInitialVerification.result) {
+      throw new AppError(
+        409,
+        "APPEAL_NOT_ALLOWED",
+        "Appeals require an initial failed verification."
+      );
+    }
+
+    return latestInitialVerification;
+  }
+
+  /**
+   * This function tells whether a failed verification is uncertain enough to allow an appeal.
+   * It receives the confidence score produced by the initial verification workflow.
+   * It returns true when the confidence is below the uncertainty threshold.
+   * It is important because clear failures and uncertain failures now follow different product behavior.
+   */
+  private isAppealAllowedForFailedVerification(confidence: number) {
+    return confidence < UNCERTAIN_FAILURE_CONFIDENCE_THRESHOLD;
+  }
+
+  /**
+   * This function checks whether the user uploaded new evidence after the initial failed verification.
+   * It receives the hydrated commitment aggregate and the initial failed verification row.
+   * It returns true when at least one newer evidence row exists.
+   * It is important because an appeal should contribute new material instead of replaying the same evidence set.
+   */
+  private hasNewEvidenceForAppeal(
+    commitment: CommitmentRecord,
+    initialFailedVerification: CommitmentRecord["verifications"][number]
+  ) {
+    return commitment.evidences.some(
+      (evidence) =>
+        evidence.id !== initialFailedVerification.evidenceId &&
+        evidence.createdAt > initialFailedVerification.createdAt
+    );
+  }
+
+  /**
+   * This function returns the effective timestamp after which a commitment may be finalized on-chain.
+   * It receives the hydrated commitment aggregate currently being evaluated for final settlement.
+   * It returns the ready-at timestamp derived from persisted data or contract configuration.
+   * It is important because clear failures now use FAILED_FINAL as a logical UX state before the contract can be finalized.
+   */
+  private async getCommitmentFinalizationReadyAt(commitment: CommitmentRecord) {
+    if (commitment.appealWindowEndsAt !== null) {
+      return commitment.appealWindowEndsAt;
+    }
+
+    if (commitment.failureMarkedAt === null) {
+      return null;
+    }
+
+    const appealWindowSeconds = await this.contractService.getAppealWindowSeconds();
+
+    return new Date(commitment.failureMarkedAt.getTime() + Number(appealWindowSeconds) * 1_000);
+  }
+
+  /**
+   * This function computes the oldest failure-mark timestamp that should already be eligible for finalization.
+   * It receives no parameters because the appeal window length is read from the contract configuration.
+   * It returns the cutoff date used by the maintenance loop for clear failures.
+   * It is important because the background finalizer can no longer rely on appealWindowEndsAt for logical FAILED_FINAL rows.
+   */
+  private async getClearFailureReadyAtCutoff() {
+    const appealWindowSeconds = await this.contractService.getAppealWindowSeconds();
+    return new Date(Date.now() - Number(appealWindowSeconds) * 1_000);
   }
 
   /**
