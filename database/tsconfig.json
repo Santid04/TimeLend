@@ -1,0 +1,15 @@
+{
+  // This file configures TypeScript for the database workspace.
+  // It exists to compile and type-check the Prisma helper layer consistently.
+  // It fits the system by making persistence utilities reusable from other server-side packages later.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "dist",
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "prisma/seed.ts"],
+  "exclude": ["dist", "node_modules"]
+}

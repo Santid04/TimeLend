@@ -1,0 +1,9 @@
+# This file defines the workspace boundaries of the TimeLend monorepo.
+# It exists so pnpm can install, link and script all project modules coherently.
+# It fits the system by keeping frontend, backend, contracts, database and shared code under one dependency graph.
+packages:
+  - frontend
+  - backend
+  - smartContract
+  - database
+  - shared

@@ -1,0 +1,27 @@
+{
+  "name": "backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API base de TimeLend con Express y TypeScript, preparada para evolucionar hacia autenticación wallet, IA, uploads y blockchain.",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "pnpm exec tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "lint": "pnpm exec eslint . --max-warnings=0",
+    "typecheck": "pnpm exec tsc --noEmit -p tsconfig.json",
+    "test": "node -e \"console.log('Backend tests will be implemented in Prompt 3.')\"",
+    "clean": "pnpm exec rimraf dist"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
+    "tsx": "^4.19.3"
+  }
+}

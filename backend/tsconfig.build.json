@@ -1,0 +1,13 @@
+{
+  // This file configures the production build for the backend local server.
+  // It exists to emit JavaScript only for the runtime server source files.
+  // It fits the system by separating local build output from the Vercel function entry point.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

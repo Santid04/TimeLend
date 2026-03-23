@@ -1,0 +1,17 @@
+{
+  // This file acts as the solution-level TypeScript entry point for the monorepo.
+  // It exists so editors and future project references have a shared top-level anchor.
+  // It fits the system by giving the repository a single TS root without forcing a single build strategy.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".next",
+    "coverage",
+    "smartContract/artifacts",
+    "smartContract/cache"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  // This file configures TypeScript for the shared workspace.
+  // It exists to build reusable contracts into a consumable package.
+  // It fits the system by making data definitions portable across frontend, backend and future tools.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

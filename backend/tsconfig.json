@@ -1,0 +1,16 @@
+{
+  // This file configures TypeScript for the backend workspace.
+  // It exists to keep local development, Vercel handlers and source organization aligned.
+  // It fits the system by giving the API a strict and predictable compilation model.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "baseUrl": ".",
+    "rootDir": ".",
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "api/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

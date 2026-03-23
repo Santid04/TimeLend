@@ -1,0 +1,12 @@
+# This file defines editor defaults shared across the repository.
+# It exists so line endings, indentation and charset remain consistent.
+# It fits the system by reducing accidental formatting noise between contributors and tools.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true

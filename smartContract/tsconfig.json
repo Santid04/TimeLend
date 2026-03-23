@@ -1,0 +1,13 @@
+{
+  // This file configures TypeScript for the Hardhat workspace.
+  // It exists to type-check contract scripts, tests and configuration in one place.
+  // It fits the system by making the on-chain toolchain auditable and maintainable from the start.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": ["node", "mocha"]
+  },
+  "include": ["hardhat.config.ts", "scripts/**/*.ts", "test/**/*.ts"],
+  "exclude": ["artifacts", "cache", "node_modules"]
+}

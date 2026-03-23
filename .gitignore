@@ -1,0 +1,24 @@
+# This file lists generated and local-only files that should not be committed.
+# It exists to keep the repository clean and reproducible across machines.
+# It fits the system by excluding build outputs, dependencies, secrets and generated artifacts.
+node_modules
+.pnpm-store
+.turbo
+dist
+coverage
+.next
+out
+.env
+.env.local
+.env.*.local
+frontend/.env.local
+backend/.env
+database/.env
+smartContract/.env
+smartContract/artifacts
+smartContract/cache
+smartContract/typechain-types
+database/generated
+*.log
+*.tsbuildinfo
+uploads

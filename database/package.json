@@ -1,0 +1,26 @@
+{
+  "name": "database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capa de persistencia de TimeLend con Prisma y PostgreSQL, preparada para crecer hacia el modelo completo del dominio.",
+  "scripts": {
+    "build": "pnpm exec tsc -p tsconfig.json",
+    "lint": "pnpm exec eslint . --max-warnings=0",
+    "typecheck": "pnpm exec tsc --noEmit -p tsconfig.json",
+    "clean": "pnpm exec rimraf dist",
+    "prisma:generate": "pnpm exec prisma generate",
+    "prisma:migrate:dev": "pnpm exec prisma migrate dev",
+    "prisma:push": "pnpm exec prisma db push",
+    "prisma:studio": "pnpm exec prisma studio"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.5.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.5.0",
+    "tsx": "^4.19.3"
+  }
+}

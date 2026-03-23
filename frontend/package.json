@@ -1,0 +1,24 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo frontend scaffold de TimeLend con Next.js, preparado para que v0 evolucione la UI sin romper contratos ni estructura.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "pnpm exec eslint . --max-warnings=0",
+    "typecheck": "pnpm exec tsc --noEmit",
+    "clean": "pnpm exec rimraf .next tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "next": "^15.2.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4"
+  }
+}

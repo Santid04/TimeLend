@@ -1,0 +1,11 @@
+# This file tells Prettier which generated folders should be skipped.
+# It exists to avoid formatting outputs that are machine-managed.
+# It fits the system by keeping formatting focused on source and docs only.
+node_modules
+dist
+.next
+coverage
+smartContract/artifacts
+smartContract/cache
+smartContract/typechain-types
+database/generated

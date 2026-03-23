@@ -1,0 +1,41 @@
+{
+  "name": "timelend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo base de TimeLend preparado para frontend, backend, smart contracts, base de datos y código compartido.",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c blue,green \"pnpm --filter frontend dev\" \"pnpm --filter backend dev\"",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "format": "pnpm exec prettier --write .",
+    "format:check": "pnpm exec prettier --check .",
+    "clean": "pnpm -r --if-present clean",
+    "contracts:compile": "pnpm --filter smartContract compile",
+    "contracts:test": "pnpm --filter smartContract test",
+    "contracts:export-abi": "pnpm --filter smartContract abi:export",
+    "contracts:deploy:fuji": "pnpm --filter smartContract deploy:fuji",
+    "db:generate": "pnpm --filter database prisma:generate",
+    "db:migrate:dev": "pnpm --filter database prisma:migrate:dev"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.23.0",
+    "@next/eslint-plugin-next": "^15.5.14",
+    "@types/node": "^22.13.11",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.23.0",
+    "eslint-config-prettier": "^10.1.1",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.28.0"
+  }
+}

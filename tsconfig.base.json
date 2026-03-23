@@ -1,0 +1,21 @@
+{
+  // This file centralizes the TypeScript defaults used by the whole monorepo.
+  // It exists to keep compiler behavior consistent across packages.
+  // It fits the system by making every module strict, predictable and easier to scale.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "declaration": true,
+    "sourceMap": true
+  }
+}
