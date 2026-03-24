@@ -34,9 +34,9 @@ export async function POST(
   _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const params = paramsSchema.parse(await context.params);
-  const serverConfig = getFrontendServerConfig();
   try {
+    const params = paramsSchema.parse(await context.params);
+    const serverConfig = getFrontendServerConfig();
     const response = await fetch(
       `${serverConfig.API_URL}/commitments/${params.id}/resolve-appeal`,
       {
@@ -69,7 +69,7 @@ export async function POST(
             : "Unable to reach the backend appeal resolution endpoint."
       },
       {
-        status: 502
+        status: 500
       }
     );
   }
