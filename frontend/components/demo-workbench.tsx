@@ -192,8 +192,10 @@ export function DemoWorkbench() {
    * It is important because demo users need a simple way to exercise the internal resolution path.
    */
   async function handleResolveAppeal(commitmentId: string) {
-    const response = await resolveAppealDemo(commitmentId);
-    setPageMessage(response.message);
+    const commitment = await resolveAppealDemo(commitmentId);
+    setPageMessage(
+      `Appeal resolved. Commitment ${commitment.onchainId} is now ${commitment.status}.`,
+    );
     await refreshCommitments();
   }
 

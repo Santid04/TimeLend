@@ -578,7 +578,7 @@ export class CommitmentService {
    * It returns an accepted-job response.
    * It is important because appeal resolution is a privileged backend-only operation.
    */
-  async resolveAppeal(commitmentId: string): Promise<AcceptedJobResponse> {
+  async resolveAppeal(commitmentId: string): Promise<PresentedCommitment> {
     const commitment = await this.getCommitmentById(commitmentId);
     this.assertAppealResolutionEligibility(commitment);
     this.assertAppealHasRequiredEvidence(commitment);
@@ -591,20 +591,15 @@ export class CommitmentService {
         },
         type: CommitmentEventType.VERIFICATION_STARTED,
       });
-      this.dispatchVerificationJob({
-        commitmentId: commitment.id,
-        type: "appeal_resolution",
-      });
+      await this.processAppealResolution(commitment.id);
     } catch (error) {
-      await this.releaseProcessingLockSafely(commitment.id, "resolveAppeal.enqueue");
+      await this.releaseProcessingLockSafely(commitment.id, "resolveAppeal.sync");
       throw error;
     }
 
-    return {
-      commitmentId: commitment.id,
-      message: "Appeal resolution queued.",
-      status: "queued",
-    };
+    const updatedCommitment = await this.getCommitmentById(commitment.id);
+
+    return this.presentCommitment(updatedCommitment);
   }
 
   /**
@@ -937,9 +932,7 @@ export class CommitmentService {
         commitment.onchainId,
         decision.success,
       );
-      const targetStatus = decision.success
-        ? CommitmentStatus.COMPLETED
-        : CommitmentStatus.FAILED_FINAL;
+      const targetStatus = this.getAppealResolutionTargetStatus(decision.success);
 
       await prisma.commitment.update({
         data: {
@@ -1557,6 +1550,16 @@ export class CommitmentService {
    */
   private isAppealAllowedForFailedVerification(confidence: number) {
     return confidence < UNCERTAIN_FAILURE_CONFIDENCE_THRESHOLD;
+  }
+
+  /**
+   * This function converts the final appeal boolean outcome into the definitive commitment status.
+   * It receives the AI success flag returned by the appeal review.
+   * It returns the final product status after the appeal is resolved.
+   * It is important because appeal resolution must never depend on confidence thresholds once the appeal is under review.
+   */
+  private getAppealResolutionTargetStatus(success: boolean) {
+    return success ? CommitmentStatus.COMPLETED : CommitmentStatus.FAILED_FINAL;
   }
 
   /**

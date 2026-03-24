@@ -257,7 +257,7 @@ export function recordAppeal(token: string, commitmentId: string, appealTxHash?:
  * It is important because the browser should not hold the internal backend API key directly.
  */
 export function resolveAppealDemo(commitmentId: string) {
-  return requestFrontendJson<AcceptedJobResponse>(
+  return requestFrontendJson<ApiCommitment>(
     `/api/internal/commitments/${commitmentId}/resolve-appeal`,
     {
       body: JSON.stringify({}),

@@ -105,16 +105,16 @@ export class CommitmentController {
   };
 
   /**
-   * This function enqueues the internal appeal-resolution workflow.
+   * This function runs the internal appeal-resolution workflow and returns the final commitment state.
    * It receives the Express request and response objects for a privileged internal route.
-   * It returns an HTTP 202 payload describing the queued job.
-   * It is important because appeal resolution should be restricted to trusted backend automation.
+   * It returns an HTTP JSON payload containing the updated commitment aggregate.
+   * It is important because appeal resolution should be restricted to trusted backend automation and end in a definitive state.
    */
   resolveAppeal = async (request: Request, response: Response) => {
-    const job = await this.commitmentService.resolveAppeal(
+    const commitment = await this.commitmentService.resolveAppeal(
       this.getRequiredParam(request, "id")
     );
-    response.status(202).json(job);
+    response.status(200).json(commitment);
   };
 
   /**

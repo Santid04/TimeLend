@@ -16,6 +16,14 @@ import { errorHandler } from "./middlewares/error-handler";
 import { notFoundMiddleware } from "./middlewares/not-found";
 import { createApiRouter } from "./routes";
 
+function normalizeOrigin(origin: string) {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return origin.trim().replace(/\/+$/, "");
+  }
+}
+
 /**
  * This function creates the configured Express application.
  * It receives no arguments because infrastructure dependencies are read from configuration modules.
@@ -29,6 +37,7 @@ export function createApp(): Express {
   const allowedOrigins = env.FRONTEND_APP_URL.split(",")
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
+  const normalizedAllowedOrigins = allowedOrigins.map((origin) => normalizeOrigin(origin));
 
   /**
    * This middleware block configures the shared HTTP protections and request parsing.
@@ -46,13 +55,23 @@ export function createApp(): Express {
   app.use(
     cors({
       origin(requestOrigin, callback) {
-        if (requestOrigin === undefined || allowedOrigins.includes(requestOrigin)) {
+        if (requestOrigin === undefined) {
+          callback(null, true);
+          return;
+        }
+
+        const normalizedRequestOrigin = normalizeOrigin(requestOrigin);
+
+        if (normalizedAllowedOrigins.includes(normalizedRequestOrigin)) {
           callback(null, true);
           return;
         }
 
         callback(
-          new AppError(403, "CORS_ORIGIN_FORBIDDEN", "Request origin is not allowed by CORS."),
+          new AppError(403, "CORS_ORIGIN_FORBIDDEN", "Request origin is not allowed by CORS.", {
+            allowedOrigins: normalizedAllowedOrigins,
+            requestOrigin: normalizedRequestOrigin,
+          }),
         );
       },
     }),

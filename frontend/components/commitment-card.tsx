@@ -139,7 +139,7 @@ export function CommitmentCard({
         ? "Appeal disabled because the failed verification was considered clear (confidence >= 0.6)."
         : "Click appeal to unlock appeal evidence submission."
       : isAppealEvidenceStage && latestAppealEvidence === null
-        ? "Upload appeal evidence or provide more explicit proof"
+        ? "Upload appeal evidence or provide more explicit proof. Submitting it will trigger the final appeal review."
         : null;
   const evidenceLockMessage = isFinalState
     ? "Evidence is locked because this commitment already reached a final state."
@@ -235,7 +235,7 @@ export function CommitmentCard({
           <strong>{isAppealEvidenceStage ? "Appeal evidence" : "Evidence submission"}</strong>
           <p>
             {isAppealEvidenceStage
-              ? "Upload appeal evidence or provide more explicit proof"
+              ? "Upload appeal evidence or provide more explicit proof. The backend will resolve the appeal right after submission."
               : "Submit a file, written evidence, or both before verification."}
           </p>
 
@@ -290,6 +290,11 @@ export function CommitmentCard({
                         file: selectedFile,
                         textEvidence: trimmedTextEvidence
                       });
+
+                      if (isAppealEvidenceStage) {
+                        await onResolveAppeal(commitment.id);
+                      }
+
                       setSelectedFile(null);
                       setTextEvidence("");
                       setFileInputKey((currentKey) => currentKey + 1);
