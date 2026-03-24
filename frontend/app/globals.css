@@ -739,6 +739,10 @@ textarea:focus-visible {
   min-height: 2.6rem;
 }
 
+.field-lowered input {
+  margin-top: 4px;
+}
+
 .button {
   appearance: none;
   display: inline-flex;
@@ -1024,11 +1028,16 @@ textarea:focus-visible {
 .commitment-expandable {
   display: grid;
   grid-template-rows: 0fr;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
   transition: grid-template-rows 0.22s ease;
 }
 
 .commitment-expandable.is-expanded {
   grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .commitment-expandable-inner {
@@ -1036,7 +1045,7 @@ textarea:focus-visible {
   gap: 18px;
   overflow: hidden;
   min-height: 0;
-  padding: 0 22px 22px;
+  padding: 8px 22px 22px;
 }
 
 .commitment-title {
@@ -1052,7 +1061,7 @@ textarea:focus-visible {
 }
 
 .card-topline {
-  margin-top: -2px;
+  margin-top: 0;
 }
 
 .status-badge {
@@ -1108,6 +1117,7 @@ textarea:focus-visible {
 .action-panel {
   display: grid;
   gap: 10px;
+  padding: 14px 16px;
 }
 
 .detail-box p {

@@ -208,7 +208,6 @@ export function CommitmentCard({
 
         <div className="commitment-toggle-meta">
           <div className="commitment-summary-chip">
-            <span>Stake</span>
             <strong>{formatEther(BigInt(commitment.amount))} AVAX</strong>
           </div>
           <span className={`status-badge status-${summaryStatus.badgeClass}`}>

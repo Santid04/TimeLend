@@ -172,7 +172,7 @@ export function CommitmentCreateForm({
           </div>
 
           <div className="form-grid">
-            <label className="field">
+            <label className="field field-lowered">
               <span>Amount (AVAX)</span>
               <input
                 min="0.001"
