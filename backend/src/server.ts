@@ -6,7 +6,7 @@
 import { prisma } from "@timelend/database";
 import type { Server } from "node:http";
 
-import { createApp } from "./app";
+import { createApp } from "./express-app";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
 import { getApplicationContext } from "./modules/application-context";

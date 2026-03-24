@@ -5,7 +5,7 @@
  */
 import type { Express } from "express";
 
-import { createApp } from "../src/app";
+import { createApp } from "../src/express-app";
 
 /**
  * This constant creates the app instance exported to Vercel.
