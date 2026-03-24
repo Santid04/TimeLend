@@ -14,6 +14,7 @@ import {
   commitmentIdParamsSchema,
   createCommitmentBodySchema,
   finalizeFailedBodySchema,
+  uploadEvidenceBodySchema,
   resolveAppealBodySchema,
   verifyCommitmentBodySchema,
   walletParamsSchema
@@ -76,6 +77,7 @@ export function createCommitmentRouter(
     "/:id/evidence",
     validateRequest(commitmentIdParamsSchema, "params"),
     upload.single("file"),
+    validateRequest(uploadEvidenceBodySchema, "body"),
     asyncHandler(dependencies.commitmentController.uploadEvidence)
   );
   router.post(

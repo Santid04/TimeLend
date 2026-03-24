@@ -66,6 +66,7 @@ export class CommitmentController {
     const uploadResult = await this.commitmentService.uploadEvidence(
       this.getAuthContext(request),
       this.getRequiredParam(request, "id"),
+      request.body,
       request.file
     );
 

@@ -19,9 +19,9 @@ const walletAddressSchema = z
  */
 export const createCommitmentSchema = z.object({
   amount: z.string().min(1),
-  deadlineAt: z.string().datetime(),
-  description: z.string().max(2_000).optional(),
-  failureWalletAddress: walletAddressSchema,
+  deadline: z.string().datetime(),
+  description: z.string().min(3).max(5_000),
+  failReceiver: walletAddressSchema,
   title: z.string().min(3).max(120)
 });
 
@@ -31,11 +31,21 @@ export const createCommitmentSchema = z.object({
  * It returns a parsed and typed object when validation succeeds.
  * It is important because evidence is the bridge between user claims and AI verification.
  */
-export const submitEvidenceSchema = z.object({
-  commitmentId: z.string().min(1),
-  evidenceReference: z.string().min(1),
-  notes: z.string().max(2_000).optional()
-});
+export const submitEvidenceSchema = z
+  .object({
+    commitmentId: z.string().min(1),
+    evidenceReference: z.string().min(1).optional(),
+    notes: z.string().max(2_000).optional(),
+    textEvidence: z.string().max(10_000).optional()
+  })
+  .refine(
+    (value) =>
+      (value.evidenceReference !== undefined && value.evidenceReference.length > 0) ||
+      (value.textEvidence !== undefined && value.textEvidence.trim().length > 0),
+    {
+      message: "Provide an evidence reference, written evidence, or both."
+    }
+  );
 
 /**
  * This schema validates a commitment status value transported across services.

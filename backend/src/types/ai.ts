@@ -13,6 +13,8 @@ export type AiVerificationDecision = {
 export type VerificationContext = {
   description: string;
   evidenceText: string;
+  fileEvidenceText?: string;
   previousReasoning?: string;
   title: string;
+  writtenEvidenceText?: string;
 };

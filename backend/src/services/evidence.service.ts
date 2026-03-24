@@ -75,6 +75,21 @@ export class EvidenceService {
   }
 
   /**
+   * This function normalizes written evidence submitted directly through the form.
+   * It receives the raw text field sent by the client, when present.
+   * It returns the cleaned text or null when the field is empty after normalization.
+   * It is important because written evidence should follow the same cleanup rules as file-extracted text.
+   */
+  normalizeSubmittedText(rawText: string | undefined) {
+    if (typeof rawText !== "string") {
+      return null;
+    }
+
+    const normalizedText = normalizeExtractedText(rawText);
+    return normalizedText.length > 0 ? normalizedText : null;
+  }
+
+  /**
    * This function removes a stored file from disk when an upload flow fails after persistence.
    * It receives the absolute or relative path of the file that should be deleted.
    * It returns a promise that resolves after the cleanup attempt finishes.

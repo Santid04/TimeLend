@@ -93,7 +93,8 @@ a {
 .empty-state,
 .detail-copy,
 .stat-box span,
-.field-hint {
+.field-hint,
+.secondary-meta {
   color: var(--muted);
 }
 
@@ -165,6 +166,13 @@ a {
   gap: 8px;
 }
 
+.checkbox-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 10px;
+  font-weight: 600;
+}
+
 .field-wide {
   grid-column: 1 / -1;
 }
@@ -185,10 +193,23 @@ a {
   padding: 12px 14px;
 }
 
+.field input:disabled,
+.field textarea:disabled,
+.field-wide input:disabled,
+.field-wide textarea:disabled {
+  background: #f4f6fa;
+  color: var(--muted);
+}
+
 .field textarea,
 .field-wide textarea {
   min-height: 140px;
   resize: vertical;
+}
+
+.field input[type="checkbox"] {
+  min-height: auto;
+  padding: 0;
 }
 
 .form-actions,
@@ -287,6 +308,7 @@ a {
   padding: 20px;
 }
 
+.commitment-card-header,
 .commitment-header {
   align-items: flex-start;
   display: flex;
@@ -329,6 +351,40 @@ a {
   font-weight: 700;
   padding: 8px 12px;
   white-space: nowrap;
+}
+
+.detail-box {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.detail-box p,
+.secondary-meta {
+  margin: 0;
+}
+
+.evidence-form {
+  display: grid;
+  gap: 14px;
+}
+
+.evidence-field input[type="file"] {
+  min-height: auto;
+  padding: 10px 0 0;
+}
+
+.secondary-meta {
+  font-size: 0.84rem;
+  margin-top: 8px;
+  text-align: right;
+}
+
+.secondary-meta span {
+  overflow-wrap: anywhere;
 }
 
 .status-active {
@@ -391,6 +447,7 @@ a {
   }
 
   .panel-header,
+  .commitment-card-header,
   .commitment-header {
     align-items: stretch;
     flex-direction: column;
@@ -398,5 +455,9 @@ a {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .secondary-meta {
+    text-align: left;
   }
 }

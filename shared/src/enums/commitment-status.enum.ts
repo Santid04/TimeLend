@@ -4,11 +4,8 @@
  * It fits the system by providing a portable lifecycle vocabulary for the domain.
  */
 export enum CommitmentStatus {
-  DRAFT = "DRAFT",
   ACTIVE = "ACTIVE",
-  EVIDENCE_PENDING = "EVIDENCE_PENDING",
-  UNDER_REVIEW = "UNDER_REVIEW",
   COMPLETED = "COMPLETED",
-  FAILED = "FAILED",
-  APPEALED = "APPEALED"
+  FAILED_FINAL = "FAILED_FINAL",
+  FAILED_PENDING_APPEAL = "FAILED_PENDING_APPEAL"
 }

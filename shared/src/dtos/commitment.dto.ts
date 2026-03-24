@@ -5,14 +5,15 @@
  */
 export type CreateCommitmentDto = {
   amount: string;
-  deadlineAt: string;
-  description?: string;
-  failureWalletAddress: string;
+  deadline: string;
+  description: string;
+  failReceiver: string;
   title: string;
 };
 
 export type SubmitEvidenceDto = {
   commitmentId: string;
-  evidenceReference: string;
+  evidenceReference?: string;
   notes?: string;
+  textEvidence?: string;
 };

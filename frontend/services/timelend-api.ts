@@ -9,6 +9,7 @@ import type {
   ApiCommitment,
   CommitmentsResponse,
   CreateCommitmentPayload,
+  EvidenceSubmissionInput,
   WalletChallengeResponse,
   WalletVerificationResponse
 } from "@/types/frontend";
@@ -158,14 +159,26 @@ export async function listCommitments(token: string, walletAddress: string) {
 }
 
 /**
- * This function uploads an evidence file for a given commitment.
- * It receives the JWT, the target commitment id and the selected browser file.
+ * This function submits one evidence payload for a given commitment.
+ * It receives the JWT, the target commitment id, an optional file and optional written evidence.
  * It returns the updated commitment aggregate from the backend.
- * It is important because the verify flow depends on persisted evidence text extraction.
+ * It is important because the verify flow now accepts file evidence, written evidence or both.
  */
-export function uploadEvidence(token: string, commitmentId: string, file: File) {
+export function uploadEvidence(
+  token: string,
+  commitmentId: string,
+  input: EvidenceSubmissionInput
+) {
   const formData = new FormData();
-  formData.append("file", file);
+  const trimmedTextEvidence = input.textEvidence.trim();
+
+  if (input.file !== null) {
+    formData.append("file", input.file);
+  }
+
+  if (trimmedTextEvidence.length > 0) {
+    formData.append("textEvidence", trimmedTextEvidence);
+  }
 
   return requestJson<{ commitment: ApiCommitment }>(`/commitments/${commitmentId}/evidence`, {
     body: formData,

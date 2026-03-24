@@ -38,9 +38,14 @@ export function buildVerificationPrompt(
     `Commitment title: ${context.title}`,
     `Commitment description: ${context.description}`,
     "",
-    "Evidence text:",
-    context.evidenceText,
-    "",
+    ...(context.fileEvidenceText !== undefined
+      ? ["Uploaded file evidence text:", context.fileEvidenceText, ""]
+      : context.writtenEvidenceText === undefined
+        ? ["Evidence text:", context.evidenceText, ""]
+        : []),
+    ...(context.writtenEvidenceText !== undefined
+      ? ["Written evidence provided by the user:", context.writtenEvidenceText, ""]
+      : ["Written evidence provided by the user: none", ""]),
     context.previousReasoning !== undefined
       ? `Previous review reasoning: ${context.previousReasoning}`
       : "Previous review reasoning: none"

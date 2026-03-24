@@ -7,20 +7,26 @@
 
 import { useState } from "react";
 
+import {
+  getFailReceiverValidationError,
+  WEB_OWNER_WALLET
+} from "@/lib/commitment-utils";
 import type { CreateCommitmentFormValues } from "@/types/frontend";
 
 type CommitmentCreateFormProps = {
   canSubmit: boolean;
   isSubmitting: boolean;
   onSubmit: (values: CreateCommitmentFormValues) => Promise<void>;
+  userWalletAddress: string | undefined;
 };
 
 const initialValues: CreateCommitmentFormValues = {
   amountAvax: "0.01",
-  deadlineLocal: "",
+  deadlineDate: "",
   description: "",
-  failReceiver: "",
-  title: ""
+  failReceiver: WEB_OWNER_WALLET,
+  title: "",
+  useWebOwnerWallet: true
 };
 
 /**
@@ -32,7 +38,8 @@ const initialValues: CreateCommitmentFormValues = {
 export function CommitmentCreateForm({
   canSubmit,
   isSubmitting,
-  onSubmit
+  onSubmit,
+  userWalletAddress
 }: CommitmentCreateFormProps) {
   const [values, setValues] = useState<CreateCommitmentFormValues>(initialValues);
   const [formError, setFormError] = useState<string | null>(null);
@@ -44,9 +51,29 @@ export function CommitmentCreateForm({
    * It is important because the demo form keeps all inputs controlled for predictable submission.
    */
   function updateValue(field: keyof CreateCommitmentFormValues, value: string) {
+    setFormError(null);
     setValues((currentValues) => ({
       ...currentValues,
       [field]: value
+    }));
+  }
+
+  /**
+   * This function toggles the WebOwnerWallet checkbox and keeps the controlled fail receiver in sync.
+   * It receives the checkbox state selected by the user.
+   * It returns nothing because the form state is updated internally.
+   * It is important because the checkbox changes both validation rules and whether the wallet field is editable.
+   */
+  function toggleUseWebOwnerWallet(useWebOwnerWallet: boolean) {
+    setFormError(null);
+    setValues((currentValues) => ({
+      ...currentValues,
+      failReceiver: useWebOwnerWallet
+        ? WEB_OWNER_WALLET
+        : currentValues.failReceiver === WEB_OWNER_WALLET
+          ? ""
+          : currentValues.failReceiver,
+      useWebOwnerWallet
     }));
   }
 
@@ -63,10 +90,20 @@ export function CommitmentCreateForm({
     if (
       values.title.trim().length === 0 ||
       values.description.trim().length === 0 ||
-      values.failReceiver.trim().length === 0 ||
-      values.deadlineLocal.trim().length === 0
+      values.deadlineDate.trim().length === 0
     ) {
-      setFormError("Complete title, description, deadline and fail receiver before submitting.");
+      setFormError("Complete title, description and deadline before submitting.");
+      return;
+    }
+
+    const failReceiverError = getFailReceiverValidationError({
+      failReceiver: values.failReceiver,
+      useWebOwnerWallet: values.useWebOwnerWallet,
+      walletAddress: userWalletAddress
+    });
+
+    if (failReceiverError !== null) {
+      setFormError(failReceiverError);
       return;
     }
 
@@ -121,19 +158,39 @@ export function CommitmentCreateForm({
         <label className="field">
           <span>Deadline</span>
           <input
-            onChange={(event) => updateValue("deadlineLocal", event.target.value)}
-            type="datetime-local"
-            value={values.deadlineLocal}
+            inputMode="numeric"
+            onChange={(event) => updateValue("deadlineDate", event.target.value)}
+            placeholder="dd/mm/yyyy"
+            value={values.deadlineDate}
           />
+          <small className="field-hint">Use dd/mm/yyyy. Time is fixed to 00:00.</small>
+        </label>
+
+        <label className="field field-wide">
+          <span className="checkbox-label">
+            <input
+              checked={values.useWebOwnerWallet}
+              onChange={(event) => toggleUseWebOwnerWallet(event.target.checked)}
+              type="checkbox"
+            />
+            Use WebOwnerWallet
+          </span>
+          <small className="field-hint">{WEB_OWNER_WALLET}</small>
         </label>
 
         <label className="field field-wide">
           <span>Fail receiver</span>
           <input
+            disabled={values.useWebOwnerWallet}
             onChange={(event) => updateValue("failReceiver", event.target.value)}
             placeholder="0x..."
             value={values.failReceiver}
           />
+          <small className="field-hint">
+            {values.useWebOwnerWallet
+              ? "Locked to the WebOwnerWallet."
+              : "Use a valid wallet address different from your connected wallet."}
+          </small>
         </label>
 
         <div className="form-actions">

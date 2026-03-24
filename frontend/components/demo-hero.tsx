@@ -4,7 +4,6 @@
  * It fits the system by giving the future UI a reusable top-level marketing shell.
  */
 type DemoHeroProps = {
-  apiBaseUrl: string;
   description: string;
   roadmapLabel: string;
   title: string;
@@ -17,7 +16,6 @@ type DemoHeroProps = {
  * It is important because it communicates what exists today and what comes next.
  */
 export function DemoHero({
-  apiBaseUrl,
   description,
   roadmapLabel,
   title
@@ -32,10 +30,6 @@ export function DemoHero({
         <div className="metadata-item">
           <span>Estado actual</span>
           <strong>Demo frontend scaffold</strong>
-        </div>
-        <div className="metadata-item">
-          <span>Backend esperado</span>
-          <strong>{apiBaseUrl}</strong>
         </div>
         <div className="metadata-item">
           <span>Siguiente hito</span>

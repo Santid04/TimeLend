@@ -5,32 +5,65 @@
  */
 "use client";
 
-import { formatEther } from "viem";
 import { useState } from "react";
+import { formatEther } from "viem";
 
-import type { ApiCommitment } from "@/types/frontend";
+import { formatDateOnly } from "@/lib/commitment-utils";
+import type { ApiCommitment, ApiEvidence, EvidenceSubmissionInput } from "@/types/frontend";
 
 type CommitmentCardProps = {
   commitment: ApiCommitment;
   onAppeal: (commitment: ApiCommitment) => Promise<void>;
   onFinalize: (commitmentId: string) => Promise<void>;
   onResolveAppeal: (commitmentId: string) => Promise<void>;
-  onUploadEvidence: (commitmentId: string, file: File) => Promise<void>;
+  onUploadEvidence: (commitmentId: string, input: EvidenceSubmissionInput) => Promise<void>;
   onVerify: (commitmentId: string) => Promise<void>;
 };
 
 /**
- * This function formats a raw ISO date string into a readable local label.
- * It receives the optional ISO string returned by the backend.
- * It returns a human-friendly string or a fallback dash.
- * It is important because most dashboard timestamps come from async backend and on-chain state transitions.
+ * This function formats the latest evidence entry into a short UI label.
+ * It receives the latest evidence payload returned by the backend.
+ * It returns a compact description of whether the entry contains a file, written evidence or both.
+ * It is important because the evidence area now supports more than file uploads.
  */
-function formatDate(dateValue: string | null) {
-  if (dateValue === null) {
-    return "—";
+function describeEvidenceEntry(evidence: ApiEvidence | null) {
+  if (evidence === null) {
+    return "None submitted yet";
   }
 
-  return new Date(dateValue).toLocaleString();
+  const hasFile = evidence.originalFileName !== null;
+  const hasWrittenEvidence = evidence.submittedText !== null && evidence.submittedText.length > 0;
+
+  if (hasFile && hasWrittenEvidence) {
+    return `${evidence.originalFileName} + written evidence`;
+  }
+
+  if (hasFile) {
+    return evidence.originalFileName ?? "File evidence";
+  }
+
+  if (hasWrittenEvidence) {
+    return "Written evidence";
+  }
+
+  return "Evidence submitted";
+}
+
+/**
+ * This function returns the timestamp after which appeal evidence should be considered new.
+ * It receives the hydrated commitment aggregate shown in the card.
+ * It returns the appeal cutoff timestamp in milliseconds or null when the appeal event is still unavailable.
+ * It is important because appeal evidence must now be newer than the recorded appeal event itself.
+ */
+function getAppealEvidenceCutoff(commitment: ApiCommitment) {
+  const appealRecordedEvent =
+    commitment.events.find((event) => event.type === "APPEAL_RECORDED") ?? null;
+
+  if (appealRecordedEvent === null) {
+    return null;
+  }
+
+  return new Date(appealRecordedEvent.createdAt).getTime();
 }
 
 /**
@@ -48,40 +81,52 @@ export function CommitmentCard({
   onVerify
 }: CommitmentCardProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [textEvidence, setTextEvidence] = useState("");
   const [cardMessage, setCardMessage] = useState<string | null>(null);
   const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const latestVerification = commitment.verifications[0] ?? null;
   const latestEvidence = commitment.evidences[0] ?? null;
   const latestInitialVerification =
     commitment.verifications.find((verification) => verification.type === "INITIAL") ?? null;
+  const appealRecordedAt = getAppealEvidenceCutoff(commitment);
+  const latestAppealEvidence =
+    appealRecordedAt === null
+      ? null
+      : commitment.evidences.find(
+          (evidence) => new Date(evidence.createdAt).getTime() > appealRecordedAt
+        ) ?? null;
 
   /*
-   * This block derives appeal eligibility from the latest failed initial verification and the evidence timeline.
-   * It is important because the demo should not let the user consume the on-chain appeal path when backend policy would reject it.
+   * This block derives appeal eligibility and evidence-stage behavior from verification history and status.
+   * It is important because appeal evidence now starts after the user consumes the on-chain appeal path.
    */
   const appealAllowedByConfidence =
     latestInitialVerification !== null &&
     !latestInitialVerification.result &&
     latestInitialVerification.confidence < 0.6;
-  const hasNewEvidenceForAppeal =
-    latestInitialVerification !== null &&
-    commitment.evidences.some(
-      (evidence) =>
-        evidence.id !== latestInitialVerification.evidenceId &&
-        new Date(evidence.createdAt).getTime() >
-          new Date(latestInitialVerification.createdAt).getTime()
-    );
-  const canVerify = commitment.status === "ACTIVE" && !commitment.isProcessing;
+  const canSubmitEvidence =
+    !commitment.isProcessing &&
+    (commitment.status === "ACTIVE" ||
+      (commitment.status === "FAILED_PENDING_APPEAL" && commitment.appealed));
+  const isAppealEvidenceStage =
+    commitment.status === "FAILED_PENDING_APPEAL" && commitment.appealed;
+  const isFinalState =
+    commitment.status === "COMPLETED" || commitment.status === "FAILED_FINAL";
+  const canVerify =
+    commitment.status === "ACTIVE" &&
+    !commitment.isProcessing &&
+    commitment.evidences.length > 0;
   const canAppeal =
     commitment.status === "FAILED_PENDING_APPEAL" &&
     !commitment.appealed &&
     !commitment.isProcessing &&
-    appealAllowedByConfidence &&
-    hasNewEvidenceForAppeal;
+    appealAllowedByConfidence;
   const canResolveAppeal =
     commitment.status === "FAILED_PENDING_APPEAL" &&
     commitment.appealed &&
-    !commitment.isProcessing;
+    !commitment.isProcessing &&
+    latestAppealEvidence !== null;
   const canFinalize =
     commitment.status === "FAILED_PENDING_APPEAL" &&
     !commitment.appealed &&
@@ -92,10 +137,17 @@ export function CommitmentCard({
     commitment.status === "FAILED_PENDING_APPEAL" && !commitment.appealed
       ? !appealAllowedByConfidence
         ? "Appeal disabled because the failed verification was considered clear (confidence >= 0.6)."
-        : !hasNewEvidenceForAppeal
-          ? "Upload new evidence after the failed verification to enable appeal."
-          : null
-      : null;
+        : "Click appeal to unlock appeal evidence submission."
+      : isAppealEvidenceStage && latestAppealEvidence === null
+        ? "Upload appeal evidence or provide more explicit proof"
+        : null;
+  const evidenceLockMessage = isFinalState
+    ? "Evidence is locked because this commitment already reached a final state."
+    : commitment.isProcessing
+      ? "Evidence is temporarily locked while this commitment is processing."
+      : commitment.status === "FAILED_PENDING_APPEAL" && !commitment.appealed
+        ? "Appeal this commitment first to unlock appeal evidence submission."
+        : null;
 
   /**
    * This function runs one card action and maps any thrown error into local UI feedback.
@@ -138,14 +190,14 @@ export function CommitmentCard({
 
         <div className="stat-box">
           <span>Deadline</span>
-          <strong>{formatDate(commitment.deadline)}</strong>
-          <small>Appeal window ends: {formatDate(commitment.appealWindowEndsAt)}</small>
+          <strong>{formatDateOnly(commitment.deadline)}</strong>
+          <small>Appeal window ends: {formatDateOnly(commitment.appealWindowEndsAt)}</small>
         </div>
 
         <div className="stat-box">
           <span>Evidence</span>
-          <strong>{commitment.evidences.length} files</strong>
-          <small>Latest: {latestEvidence?.originalFileName ?? "None uploaded yet"}</small>
+          <strong>{commitment.evidences.length} entries</strong>
+          <small>Latest: {describeEvidenceEntry(latestEvidence)}</small>
         </div>
       </div>
 
@@ -167,38 +219,94 @@ export function CommitmentCard({
 
       {appealHint !== null ? (
         <div className="detail-box">
-          <strong>Appeal policy</strong>
+          <strong>{isAppealEvidenceStage ? "Appeal evidence" : "Appeal policy"}</strong>
           <p>{appealHint}</p>
         </div>
       ) : null}
 
-      <div className="evidence-row">
-        <input
-          accept=".pdf,.txt,text/plain,application/pdf"
-          onChange={(event) => {
-            const nextFile = event.target.files?.[0] ?? null;
-            setSelectedFile(nextFile);
-          }}
-          type="file"
-        />
-        <button
-          className="button button-secondary"
-          disabled={selectedFile === null || activeAction !== null}
-          onClick={() =>
-            void runCardAction("Evidence upload", async () => {
-              if (selectedFile === null) {
-                throw new Error("Choose a TXT or PDF file first.");
-              }
+      {canSubmitEvidence ? (
+        <div className="detail-box">
+          <strong>{isAppealEvidenceStage ? "Appeal evidence" : "Evidence submission"}</strong>
+          <p>
+            {isAppealEvidenceStage
+              ? "Upload appeal evidence or provide more explicit proof"
+              : "Submit a file, written evidence, or both before verification."}
+          </p>
 
-              await onUploadEvidence(commitment.id, selectedFile);
-              setSelectedFile(null);
-            })
-          }
-          type="button"
-        >
-          {activeAction === "Evidence upload" ? "Uploading..." : "Upload evidence"}
-        </button>
-      </div>
+          <div className="evidence-form">
+            <label className="field evidence-field">
+              <span>{isAppealEvidenceStage ? "Appeal file" : "Upload file"}</span>
+              <input
+                accept=".pdf,.txt,text/plain,application/pdf"
+                disabled={activeAction !== null}
+                key={fileInputKey}
+                onChange={(event) => {
+                  const nextFile = event.target.files?.[0] ?? null;
+                  setSelectedFile(nextFile);
+                }}
+                type="file"
+              />
+            </label>
+
+            <label className="field field-wide">
+              <span>{isAppealEvidenceStage ? "Write your appeal evidence" : "Write your evidence"}</span>
+              <textarea
+                disabled={activeAction !== null}
+                onChange={(event) => setTextEvidence(event.target.value)}
+                placeholder={
+                  isAppealEvidenceStage
+                    ? "Explain why the previous failure should be reconsidered."
+                    : "Describe the proof you want the verifier to consider."
+                }
+                rows={4}
+                value={textEvidence}
+              />
+            </label>
+
+            <div className="form-actions">
+              <button
+                className="button button-secondary"
+                disabled={
+                  activeAction !== null ||
+                  (selectedFile === null && textEvidence.trim().length === 0)
+                }
+                onClick={() =>
+                  void runCardAction(
+                    isAppealEvidenceStage ? "Appeal evidence upload" : "Evidence upload",
+                    async () => {
+                      const trimmedTextEvidence = textEvidence.trim();
+
+                      if (selectedFile === null && trimmedTextEvidence.length === 0) {
+                        throw new Error("Provide a file, written evidence, or both.");
+                      }
+
+                      await onUploadEvidence(commitment.id, {
+                        file: selectedFile,
+                        textEvidence: trimmedTextEvidence
+                      });
+                      setSelectedFile(null);
+                      setTextEvidence("");
+                      setFileInputKey((currentKey) => currentKey + 1);
+                    }
+                  )
+                }
+                type="button"
+              >
+                {activeAction === "Evidence upload" || activeAction === "Appeal evidence upload"
+                  ? "Uploading..."
+                  : isAppealEvidenceStage
+                    ? "Submit appeal evidence"
+                    : "Submit evidence"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : evidenceLockMessage !== null ? (
+        <div className="detail-box">
+          <strong>{isAppealEvidenceStage ? "Appeal evidence" : "Evidence"}</strong>
+          <p>{evidenceLockMessage}</p>
+        </div>
+      ) : null}
 
       <div className="button-row">
         <button

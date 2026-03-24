@@ -5,12 +5,16 @@
  */
 "use client";
 
-import { getAddress, isAddress } from "viem";
+import { getAddress } from "viem";
 import { useState } from "react";
 
 import { CommitmentCard } from "@/components/commitment-card";
 import { CommitmentCreateForm } from "@/components/commitment-create-form";
 import { WalletSessionPanel } from "@/components/wallet-session-panel";
+import {
+  buildDeadlineFromDateOnly,
+  getFailReceiverValidationError
+} from "@/lib/commitment-utils";
 import { getFrontendRuntimeConfig } from "@/lib/env";
 import { useCommitmentsDashboard } from "@/hooks/use-commitments-dashboard";
 import { useTimeLendWalletActions } from "@/hooks/use-timelend-wallet-actions";
@@ -23,7 +27,11 @@ import {
   uploadEvidence,
   verifyCommitmentRequest
 } from "@/services/timelend-api";
-import type { ApiCommitment, CreateCommitmentFormValues } from "@/types/frontend";
+import type {
+  ApiCommitment,
+  CreateCommitmentFormValues,
+  EvidenceSubmissionInput
+} from "@/types/frontend";
 
 /**
  * This component renders the single-page demo workbench used to test the full system.
@@ -57,25 +65,6 @@ export function DemoWorkbench() {
   const [isCreating, setIsCreating] = useState(false);
 
   /**
-   * This function converts the local datetime input into the ISO and unix values used by chain and backend.
-   * It receives the browser form value from the create form.
-   * It returns both an ISO string and a bigint unix timestamp.
-   * It is important because the contract and backend require different but equivalent deadline formats.
-   */
-  function buildDeadline(deadlineLocal: string) {
-    const deadlineDate = new Date(deadlineLocal);
-
-    if (Number.isNaN(deadlineDate.getTime())) {
-      throw new Error("Deadline is invalid.");
-    }
-
-    return {
-      iso: deadlineDate.toISOString(),
-      unix: BigInt(Math.floor(deadlineDate.getTime() / 1_000))
-    };
-  }
-
-  /**
    * This function creates the commitment on-chain and then persists its metadata in the backend.
    * It receives the controlled create-form values.
    * It returns a promise that resolves after both the chain transaction and backend sync finish.
@@ -94,16 +83,22 @@ export function DemoWorkbench() {
       throw new Error("Wallet client is still initializing.");
     }
 
-    if (!isAddress(values.failReceiver)) {
-      throw new Error("Fail receiver must be a valid wallet address.");
-    }
-
     setIsCreating(true);
     setCreateError(null);
     setPageMessage(null);
 
     try {
-      const deadline = buildDeadline(values.deadlineLocal);
+      const failReceiverError = getFailReceiverValidationError({
+        failReceiver: values.failReceiver,
+        useWebOwnerWallet: values.useWebOwnerWallet,
+        walletAddress: address
+      });
+
+      if (failReceiverError !== null) {
+        throw new Error(failReceiverError);
+      }
+
+      const deadline = buildDeadlineFromDateOnly(values.deadlineDate);
       const onChainCommitment = await createCommitmentWithWallet({
         amountAvax: values.amountAvax,
         deadlineUnix: deadline.unix,
@@ -141,12 +136,12 @@ export function DemoWorkbench() {
    * It returns a promise that resolves after the backend stores and parses the evidence.
    * It is important because evidence ingestion is the entry point to AI verification.
    */
-  async function handleUploadEvidence(commitmentId: string, file: File) {
+  async function handleUploadEvidence(commitmentId: string, input: EvidenceSubmissionInput) {
     if (session === null) {
       throw new Error("Authenticate before uploading evidence.");
     }
 
-    await uploadEvidence(session.token, commitmentId, file);
+    await uploadEvidence(session.token, commitmentId, input);
     await refreshCommitments();
   }
 
@@ -222,21 +217,6 @@ export function DemoWorkbench() {
             backend record, upload evidence and drive the full verification flow.
           </p>
         </div>
-
-        <div className="hero-metadata">
-          <div className="stat-box">
-            <span>Backend</span>
-            <strong>{runtimeConfig.NEXT_PUBLIC_API_URL}</strong>
-          </div>
-          <div className="stat-box">
-            <span>Contract</span>
-            <strong>{runtimeConfig.NEXT_PUBLIC_CONTRACT_ADDRESS}</strong>
-          </div>
-          <div className="stat-box">
-            <span>RPC</span>
-            <strong>{runtimeConfig.NEXT_PUBLIC_RPC_URL}</strong>
-          </div>
-        </div>
       </section>
 
       <WalletSessionPanel
@@ -258,6 +238,7 @@ export function DemoWorkbench() {
         canSubmit={isAuthenticated && isOnSupportedChain && walletReady}
         isSubmitting={isCreating}
         onSubmit={handleCreateCommitment}
+        userWalletAddress={address}
       />
 
       {createError !== null ? <p className="feedback feedback-error">{createError}</p> : null}
@@ -303,6 +284,10 @@ export function DemoWorkbench() {
           </div>
         )}
       </section>
+
+      <p className="secondary-meta">
+        Contract: <span>{runtimeConfig.NEXT_PUBLIC_CONTRACT_ADDRESS}</span>
+      </p>
     </main>
   );
 }

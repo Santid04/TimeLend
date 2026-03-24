@@ -30,12 +30,13 @@ export type AcceptedJobResponse = {
 export type ApiEvidence = {
   createdAt: string;
   extractedText: string;
-  fileSize: number;
-  fileUrl: string;
+  fileSize: number | null;
+  fileUrl: string | null;
   id: string;
-  mimeType: string;
-  originalFileName: string;
-  storedFileName: string;
+  mimeType: string | null;
+  originalFileName: string | null;
+  storedFileName: string | null;
+  submittedText: string | null;
 };
 
 export type ApiVerification = {
@@ -105,10 +106,16 @@ export type CreateCommitmentPayload = {
 
 export type CreateCommitmentFormValues = {
   amountAvax: string;
-  deadlineLocal: string;
+  deadlineDate: string;
   description: string;
   failReceiver: string;
   title: string;
+  useWebOwnerWallet: boolean;
+};
+
+export type EvidenceSubmissionInput = {
+  file: File | null;
+  textEvidence: string;
 };
 
 export type DemoActionResult = {

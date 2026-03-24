@@ -63,15 +63,20 @@ type AppealInput = {
   appealTxHash?: string;
 };
 
+type EvidenceUploadInput = {
+  textEvidence?: string;
+};
+
 type PresentedEvidence = {
   createdAt: Date;
   extractedText: string;
-  fileSize: number;
-  fileUrl: string;
+  fileSize: number | null;
+  fileUrl: string | null;
   id: string;
-  mimeType: string;
-  originalFileName: string;
-  storedFileName: string;
+  mimeType: string | null;
+  originalFileName: string | null;
+  storedFileName: string | null;
+  submittedText: string | null;
 };
 
 type PresentedVerification = {
@@ -137,6 +142,7 @@ type EvidenceUploadResult = {
  * It is important because blockchain state, verification state and product state must evolve together without ambiguity.
  */
 export class CommitmentService {
+  private evidenceSchemaVerified = false;
   private maintenanceInterval: NodeJS.Timeout | null = null;
 
   /**
@@ -194,8 +200,13 @@ export class CommitmentService {
     auth: AuthenticatedUserContext,
     input: CreateCommitmentInput
   ): Promise<PresentedCommitment> {
+    await this.assertEvidenceSchemaReady();
     const authenticatedUser = await this.getAuthenticatedUser(auth);
     const normalizedInput = this.normalizeCommitmentInput(input);
+    this.assertFailReceiverIsNotUserWallet(
+      authenticatedUser.walletAddress,
+      normalizedInput.failReceiver
+    );
     const existingCommitment = await prisma.commitment.findUnique({
       include: commitmentInclude,
       where: {
@@ -238,14 +249,26 @@ export class CommitmentService {
         title: normalizedInput.title,
         userId: authenticatedUser.id,
         events: {
-          create: {
-            metadata: {
-              source: "frontend-onchain-sync"
+          create: [
+            {
+              metadata: {
+                source: "frontend-onchain-sync"
+              },
+              toStatus: derivedStatus,
+              txHash: normalizedInput.createCommitmentTxHash ?? null,
+              type: CommitmentEventType.CREATED
             },
-            toStatus: derivedStatus,
-            txHash: normalizedInput.createCommitmentTxHash ?? null,
-            type: CommitmentEventType.CREATED
-          }
+            ...(onChainCommitment.appealed
+              ? [
+                  {
+                    metadata: {
+                      source: "onchain-appeal-sync"
+                    },
+                    type: CommitmentEventType.APPEAL_RECORDED
+                  }
+                ]
+              : [])
+          ]
         }
       },
       include: commitmentInclude
@@ -273,6 +296,7 @@ export class CommitmentService {
     auth: AuthenticatedUserContext,
     walletAddress: string
   ): Promise<PresentedCommitment[]> {
+    await this.assertEvidenceSchemaReady();
     const normalizedWalletAddress = getAddress(walletAddress);
 
     if (normalizedWalletAddress !== getAddress(auth.walletAddress)) {
@@ -294,27 +318,29 @@ export class CommitmentService {
       }
     });
 
-    return commitments.map((commitment) => this.presentCommitment(commitment));
+    const normalizedCommitments = await Promise.all(
+      commitments.map((commitment) => this.ensureAppealRecordedEvent(commitment))
+    );
+
+    return normalizedCommitments.map((commitment) => this.presentCommitment(commitment));
   }
 
   /**
-   * This function ingests an uploaded evidence file and stores it against the commitment.
-   * It receives the authenticated wallet context, the off-chain commitment id and the uploaded file metadata.
+   * This function ingests one evidence submission and stores it against the commitment.
+   * It receives the authenticated wallet context, the off-chain commitment id, optional written evidence and optional uploaded file metadata.
    * It returns the updated commitment plus the stored evidence row.
    * It is important because every later verification and appeal depends on this persisted evidence history.
    */
   async uploadEvidence(
     auth: AuthenticatedUserContext,
     commitmentId: string,
+    input: EvidenceUploadInput,
     file: Express.Multer.File | undefined
   ): Promise<EvidenceUploadResult> {
-    if (file === undefined) {
-      throw new AppError(400, "EVIDENCE_FILE_MISSING", "An evidence file is required.");
-    }
-
     const commitment = await this.getOwnedCommitment(commitmentId, auth.userId);
+    const submittedText = this.evidenceService.normalizeSubmittedText(input.textEvidence);
 
-    if (!this.canUploadEvidence(commitment.status, commitment.isProcessing)) {
+    if (!this.canUploadEvidence(commitment)) {
       throw new AppError(
         409,
         "EVIDENCE_UPLOAD_NOT_ALLOWED",
@@ -322,20 +348,40 @@ export class CommitmentService {
       );
     }
 
+    if (file === undefined && submittedText === null) {
+      throw new AppError(
+        400,
+        "EVIDENCE_REQUIRED",
+        "Provide an evidence file, written evidence, or both."
+      );
+    }
+
     try {
-      const extractedEvidence = await this.evidenceService.ingestUploadedFile(file);
-      const fileUrl = this.buildFileUrl(extractedEvidence.storedFileName);
+      const extractedEvidence =
+        file === undefined ? null : await this.evidenceService.ingestUploadedFile(file);
+      const fileUrl =
+        extractedEvidence === null ? null : this.buildFileUrl(extractedEvidence.storedFileName);
+      const evidenceText = extractedEvidence?.extractedText ?? submittedText;
+
+      if (evidenceText === null) {
+        throw new AppError(
+          400,
+          "EVIDENCE_REQUIRED",
+          "Provide an evidence file, written evidence, or both."
+        );
+      }
 
       const [evidence, updatedCommitment] = await prisma.$transaction([
         prisma.evidence.create({
           data: {
             commitmentId: commitment.id,
-            extractedText: extractedEvidence.extractedText,
-            fileSize: extractedEvidence.fileSize,
+            extractedText: evidenceText,
+            fileSize: extractedEvidence?.fileSize ?? null,
             fileUrl,
-            mimeType: extractedEvidence.mimeType,
-            originalFileName: extractedEvidence.originalFileName,
-            storedFileName: extractedEvidence.storedFileName,
+            mimeType: extractedEvidence?.mimeType ?? null,
+            originalFileName: extractedEvidence?.originalFileName ?? null,
+            storedFileName: extractedEvidence?.storedFileName ?? null,
+            submittedText,
             uploadedByUserId: auth.userId
           }
         }),
@@ -344,8 +390,10 @@ export class CommitmentService {
             events: {
               create: {
                 metadata: {
-                  fileUrl,
-                  mimeType: extractedEvidence.mimeType
+                  hasFile: extractedEvidence !== null,
+                  hasWrittenEvidence: submittedText !== null,
+                  ...(fileUrl === null ? {} : { fileUrl }),
+                  ...(extractedEvidence === null ? {} : { mimeType: extractedEvidence.mimeType })
                 },
                 type: CommitmentEventType.EVIDENCE_ADDED
               }
@@ -361,7 +409,9 @@ export class CommitmentService {
       logger.info(
         {
           commitmentId: commitment.id,
-          evidenceId: evidence.id
+          evidenceId: evidence.id,
+          hasFile: extractedEvidence !== null,
+          hasWrittenEvidence: submittedText !== null
         },
         "Evidence stored successfully"
       );
@@ -371,7 +421,9 @@ export class CommitmentService {
         evidence: this.presentEvidence(evidence)
       };
     } catch (error) {
-      await this.evidenceService.removeStoredFile(file.path);
+      if (file !== undefined) {
+        await this.evidenceService.removeStoredFile(file.path);
+      }
       throw error;
     }
   }
@@ -473,14 +525,6 @@ export class CommitmentService {
       );
     }
 
-    if (!this.hasNewEvidenceForAppeal(commitment, latestInitialVerification)) {
-      throw new AppError(
-        409,
-        "APPEAL_REQUIRES_NEW_EVIDENCE",
-        "Upload new evidence before appealing this commitment."
-      );
-    }
-
     const onChainCommitment = await this.contractService.getCommitmentOnChain(commitment.onchainId);
 
     if (onChainCommitment.status !== 2 || !onChainCommitment.appealed) {
@@ -523,7 +567,6 @@ export class CommitmentService {
   async resolveAppeal(commitmentId: string): Promise<AcceptedJobResponse> {
     const commitment = await this.getCommitmentById(commitmentId);
     this.assertAppealResolutionEligibility(commitment);
-    this.getLatestEvidence(commitment);
     this.assertAppealHasRequiredEvidence(commitment);
 
     await this.acquireProcessingLock(commitment.id, [CommitmentStatus.FAILED_PENDING_APPEAL]);
@@ -811,7 +854,7 @@ export class CommitmentService {
         return;
       }
 
-      const latestEvidence = this.getLatestEvidence(commitment);
+      const latestEvidence = this.getLatestAppealEvidence(commitment);
       const latestInitialVerification = commitment.verifications.find(
         (verification) => verification.type === VerificationType.INITIAL
       );
@@ -995,6 +1038,7 @@ export class CommitmentService {
    * It is important because user-facing routes must never operate on another wallet's commitment.
    */
   private async getOwnedCommitment(commitmentId: string, userId: string) {
+    await this.assertEvidenceSchemaReady();
     const commitment = await prisma.commitment.findFirst({
       include: commitmentInclude,
       where: {
@@ -1007,7 +1051,7 @@ export class CommitmentService {
       throw new AppError(404, "COMMITMENT_NOT_FOUND", "Commitment not found for the authenticated user.");
     }
 
-    return commitment;
+    return this.ensureAppealRecordedEvent(commitment);
   }
 
   /**
@@ -1017,6 +1061,7 @@ export class CommitmentService {
    * It is important because internal flows and background jobs still need a safe aggregate loader.
    */
   private async getCommitmentById(commitmentId: string) {
+    await this.assertEvidenceSchemaReady();
     const commitment = await prisma.commitment.findUnique({
       include: commitmentInclude,
       where: {
@@ -1028,7 +1073,7 @@ export class CommitmentService {
       throw new AppError(404, "COMMITMENT_NOT_FOUND", "Commitment not found.");
     }
 
-    return commitment;
+    return this.ensureAppealRecordedEvent(commitment);
   }
 
   /**
@@ -1101,6 +1146,54 @@ export class CommitmentService {
   }
 
   /**
+   * This function rejects commitment creation when the fail receiver matches the authenticated wallet.
+   * It receives the authenticated wallet address and the normalized fail receiver selected for the commitment.
+   * It returns nothing and throws when both addresses are the same.
+   * It is important because the backend must enforce the same fail-receiver rule even when the frontend is bypassed.
+   */
+  private assertFailReceiverIsNotUserWallet(walletAddress: string, failReceiver: string) {
+    if (getAddress(walletAddress) === getAddress(failReceiver)) {
+      throw new AppError(
+        400,
+        "FAIL_RECEIVER_INVALID",
+        "Fail receiver must be different from the authenticated wallet address."
+      );
+    }
+  }
+
+  /**
+   * This function verifies that the latest evidence schema migration is present before commitment routes run.
+   * It receives no parameters because the check is derived from the current database schema.
+   * It returns nothing and throws a clear error when the submittedText column is missing.
+   * It is important because otherwise Prisma would fail later with an opaque column-missing runtime error.
+   */
+  private async assertEvidenceSchemaReady() {
+    if (this.evidenceSchemaVerified) {
+      return;
+    }
+
+    const result = await prisma.$queryRaw<Array<{ submittedTextColumnPresent: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'Evidence'
+          AND column_name = 'submittedText'
+      ) AS "submittedTextColumnPresent"
+    `;
+
+    if (result[0]?.submittedTextColumnPresent !== true) {
+      throw new AppError(
+        503,
+        "DATABASE_MIGRATION_REQUIRED",
+        "The database schema is outdated. Apply the latest Prisma migration before using commitment routes."
+      );
+    }
+
+    this.evidenceSchemaVerified = true;
+  }
+
+  /**
    * This function maps the contract state into the logical database status.
    * It receives the on-chain contract status and payout state.
    * It returns the corresponding database status.
@@ -1136,10 +1229,11 @@ export class CommitmentService {
    * It returns true when a new evidence upload is acceptable.
    * It is important because evidence should not mutate commitments during active backend resolution.
    */
-  private canUploadEvidence(status: CommitmentStatus, isProcessing: boolean) {
+  private canUploadEvidence(commitment: CommitmentRecord) {
     return (
-      !isProcessing &&
-      (status === CommitmentStatus.ACTIVE || status === CommitmentStatus.FAILED_PENDING_APPEAL)
+      !commitment.isProcessing &&
+      (commitment.status === CommitmentStatus.ACTIVE ||
+        (commitment.status === CommitmentStatus.FAILED_PENDING_APPEAL && commitment.appealed))
     );
   }
 
@@ -1208,13 +1302,7 @@ export class CommitmentService {
       );
     }
 
-    if (!this.hasNewEvidenceForAppeal(commitment, latestInitialVerification)) {
-      throw new AppError(
-        409,
-        "APPEAL_REQUIRES_NEW_EVIDENCE",
-        "Appeal resolution requires new evidence uploaded after the initial failed verification."
-      );
-    }
+    this.getLatestAppealEvidence(commitment);
   }
 
   /**
@@ -1420,20 +1508,70 @@ export class CommitmentService {
   }
 
   /**
-   * This function checks whether the user uploaded new evidence after the initial failed verification.
-   * It receives the hydrated commitment aggregate and the initial failed verification row.
-   * It returns true when at least one newer evidence row exists.
-   * It is important because an appeal should contribute new material instead of replaying the same evidence set.
+   * This function returns the latest evidence eligible for appeal review.
+   * It receives the hydrated commitment aggregate already loaded with events and verification history.
+   * It returns the newest evidence uploaded after the appeal started, or after the initial failure for older data.
+   * It is important because appeal resolution should only consider fresh evidence supplied for the appeal phase.
    */
-  private hasNewEvidenceForAppeal(
-    commitment: CommitmentRecord,
-    initialFailedVerification: CommitmentRecord["verifications"][number]
-  ) {
-    return commitment.evidences.some(
-      (evidence) =>
-        evidence.id !== initialFailedVerification.evidenceId &&
-        evidence.createdAt > initialFailedVerification.createdAt
+  private getLatestAppealEvidence(commitment: CommitmentRecord) {
+    const appealRecordedEvent = commitment.events.find(
+      (event) => event.type === CommitmentEventType.APPEAL_RECORDED
     );
+
+    if (appealRecordedEvent === undefined) {
+      throw new AppError(
+        409,
+        "APPEAL_EVENT_MISSING",
+        "Appeal resolution requires a recorded appeal event before new evidence can be evaluated."
+      );
+    }
+
+    const latestAppealEvidence = commitment.evidences.find(
+      (evidence) => evidence.createdAt > appealRecordedEvent.createdAt
+    );
+
+    if (latestAppealEvidence === undefined) {
+      throw new AppError(
+        409,
+        "APPEAL_REQUIRES_NEW_EVIDENCE",
+        "Upload appeal evidence or provide more explicit proof before resolving the appeal."
+      );
+    }
+
+    return latestAppealEvidence;
+  }
+
+  /**
+   * This function backfills the appeal-recorded event for legacy appealed rows that predate the explicit event.
+   * It receives the hydrated commitment aggregate already loaded from persistence.
+   * It returns the original commitment or an updated copy containing the backfilled event.
+   * It is important because the appeal workflow now relies on the appeal event as the source of truth for new evidence cutoffs.
+   */
+  private async ensureAppealRecordedEvent(commitment: CommitmentRecord) {
+    if (
+      !commitment.appealed ||
+      commitment.status !== CommitmentStatus.FAILED_PENDING_APPEAL ||
+      commitment.events.some((event) => event.type === CommitmentEventType.APPEAL_RECORDED)
+    ) {
+      return commitment;
+    }
+
+    return prisma.commitment.update({
+      data: {
+        events: {
+          create: {
+            metadata: {
+              source: "legacy-appeal-event-backfill"
+            },
+            type: CommitmentEventType.APPEAL_RECORDED
+          }
+        }
+      },
+      include: commitmentInclude,
+      where: {
+        id: commitment.id
+      }
+    });
   }
 
   /**
@@ -1478,11 +1616,21 @@ export class CommitmentService {
     evidence: CommitmentRecord["evidences"][number],
     previousReasoning?: string
   ) {
+    const fileEvidenceText =
+      evidence.originalFileName !== null ? evidence.extractedText : undefined;
+    const writtenEvidenceText = evidence.submittedText ?? undefined;
+    const evidenceTextParts = [fileEvidenceText, writtenEvidenceText].filter(
+      (value): value is string => value !== undefined
+    );
+
     return {
       description: commitment.description,
-      evidenceText: evidence.extractedText,
+      evidenceText:
+        evidenceTextParts.length > 0 ? evidenceTextParts.join("\n\n") : evidence.extractedText,
+      ...(fileEvidenceText === undefined ? {} : { fileEvidenceText }),
       ...(previousReasoning === undefined ? {} : { previousReasoning }),
-      title: commitment.title
+      title: commitment.title,
+      ...(writtenEvidenceText === undefined ? {} : { writtenEvidenceText })
     };
   }
 
@@ -1551,7 +1699,8 @@ export class CommitmentService {
       id: evidence.id,
       mimeType: evidence.mimeType,
       originalFileName: evidence.originalFileName,
-      storedFileName: evidence.storedFileName
+      storedFileName: evidence.storedFileName,
+      submittedText: evidence.submittedText
     };
   }
 

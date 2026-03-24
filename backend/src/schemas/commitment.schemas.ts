@@ -39,6 +39,16 @@ export const commitmentIdParamsSchema = z.object({
 });
 
 /**
+ * This schema validates the multipart text fields accepted by the evidence endpoint.
+ * It receives untrusted form-data text values after multer has parsed the request.
+ * It returns a typed object containing the optional written evidence field.
+ * It is important because evidence submissions can now include written proof without a file upload.
+ */
+export const uploadEvidenceBodySchema = z.object({
+  textEvidence: z.string().max(10_000).optional()
+});
+
+/**
  * This schema validates the route params used to fetch commitments by wallet.
  * It receives untrusted HTTP input.
  * It returns a typed params object when validation succeeds.

@@ -164,7 +164,7 @@ model Commitment {
 }
 
 /// This model stores the evidence artifacts submitted by the user.
-/// It exists so every AI decision can be traced back to the exact uploaded file and extracted text.
+/// It exists so every AI decision can be traced back to the exact file upload and/or written proof used in review.
 /// It fits the system by persisting evidence independently from the current commitment status.
 model Evidence {
   /// Stable UUID for the evidence row.
@@ -176,22 +176,25 @@ model Evidence {
   /// Foreign key pointing to the uploading user.
   uploadedByUserId String @db.Uuid
 
-  /// Logical URL or relative path used to locate the stored file.
-  fileUrl String
+  /// Logical URL or relative path used to locate the stored file when a file was uploaded.
+  fileUrl String?
 
-  /// Original filename supplied by the user for auditability.
-  originalFileName String
+  /// Original filename supplied by the user for auditability when a file was uploaded.
+  originalFileName String?
 
-  /// Stored filename used by the local storage adapter.
-  storedFileName String
+  /// Stored filename used by the local storage adapter when a file was uploaded.
+  storedFileName String?
 
   /// MIME type reported for the uploaded file.
-  mimeType String
+  mimeType String?
 
   /// File size in bytes captured at upload time.
-  fileSize Int
+  fileSize Int?
 
-  /// Extracted text that will be fed into AI verification.
+  /// Optional written evidence submitted directly through the UI.
+  submittedText String?
+
+  /// Normalized evidence text that will be fed into AI verification.
   extractedText String
 
   /// Creation timestamp for ordering and history.
