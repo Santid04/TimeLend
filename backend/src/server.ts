@@ -9,6 +9,7 @@ import type { Server } from "node:http";
 import { createApp } from "./app";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
+import { getApplicationContext } from "./modules/application-context";
 
 const app = createApp();
 
@@ -20,14 +21,15 @@ const app = createApp();
  */
 async function startServer() {
   await prisma.$connect();
+  getApplicationContext().commitmentService.startMaintenanceLoop();
 
   const server = app.listen(env.PORT, () => {
     logger.info(
       {
         apiVersion: env.API_VERSION,
-        port: env.PORT
+        port: env.PORT,
       },
-      "Backend server is running"
+      "Backend server is running",
     );
   });
 

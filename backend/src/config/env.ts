@@ -13,6 +13,8 @@ const backendEnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   APP_NAME: z.string().min(1).default("TimeLend API"),
   API_VERSION: z.string().min(1).default("v1"),
+  BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
+  CRON_SECRET: z.string().min(16).optional(),
   FRONTEND_APP_URL: z.string().min(1).default("http://localhost:3000"),
   DATABASE_URL: z.string().min(1),
   PRIVATE_KEY: z.string().min(1),
@@ -27,7 +29,7 @@ const backendEnvSchema = z.object({
   MAX_UPLOAD_SIZE_BYTES: z.coerce.number().int().positive().default(5_242_880),
   AVALANCHE_CHAIN_ID: z.coerce.number().int().positive().default(43_113),
   INTERNAL_API_KEY: z.string().min(16),
-  FAILED_FINALIZATION_INTERVAL_MS: z.coerce.number().int().positive().default(30_000)
+  FAILED_FINALIZATION_INTERVAL_MS: z.coerce.number().int().positive().default(30_000),
 });
 
 /**

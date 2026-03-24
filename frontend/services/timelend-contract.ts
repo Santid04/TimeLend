@@ -7,7 +7,7 @@ import type { Abi, Address, PublicClient, WalletClient } from "viem";
 import { getAddress, parseEther, parseEventLogs } from "viem";
 import { avalancheFuji } from "viem/chains";
 
-import timeLendArtifact from "../../shared/abi/TimeLend.json";
+import timeLendArtifact from "@timelend/shared/abi/TimeLend.json";
 
 const timeLendAbi = timeLendArtifact.abi as Abi;
 
@@ -50,7 +50,7 @@ export function getTimeLendAbi() {
 export async function createCommitmentOnChain(
   walletClient: WalletClient,
   publicClient: PublicClient,
-  input: CreateCommitmentChainInput
+  input: CreateCommitmentChainInput,
 ): Promise<CreateCommitmentChainResult> {
   const amountWei = parseEther(input.amountAvax);
   const transactionHash = await walletClient.writeContract({
@@ -60,17 +60,17 @@ export async function createCommitmentOnChain(
     args: [input.deadlineUnix, getAddress(input.failReceiver)],
     chain: avalancheFuji,
     functionName: "createCommitment",
-    value: amountWei
+    value: amountWei,
   });
 
   const transactionReceipt = await publicClient.waitForTransactionReceipt({
-    hash: transactionHash
+    hash: transactionHash,
   });
 
   const parsedLogs = parseEventLogs({
     abi: timeLendAbi,
     eventName: "CommitmentCreated",
-    logs: transactionReceipt.logs
+    logs: transactionReceipt.logs,
   });
 
   const createdLog = parsedLogs[0] as CommitmentCreatedLog | undefined;
@@ -89,7 +89,7 @@ export async function createCommitmentOnChain(
   return {
     amountWei: amountWei.toString(),
     onchainId: emittedCommitmentId.toString(),
-    txHash: transactionHash
+    txHash: transactionHash,
   };
 }
 
@@ -104,7 +104,7 @@ export async function requestAppealOnChain(
   publicClient: PublicClient,
   contractAddress: Address,
   walletAddress: Address,
-  onchainId: string
+  onchainId: string,
 ) {
   const transactionHash = await walletClient.writeContract({
     abi: timeLendAbi,
@@ -112,11 +112,11 @@ export async function requestAppealOnChain(
     address: contractAddress,
     args: [BigInt(onchainId)],
     chain: avalancheFuji,
-    functionName: "appeal"
+    functionName: "appeal",
   });
 
   await publicClient.waitForTransactionReceipt({
-    hash: transactionHash
+    hash: transactionHash,
   });
 
   return transactionHash;

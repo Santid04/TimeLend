@@ -1,38 +1,30 @@
-<!-- This file introduces the TimeLend monorepo at the repository root. -->
-<!-- It exists to give contributors a quick entry point before they open module-level docs. -->
-<!-- It fits the system by summarizing the workspace layout, core commands and documentation map. -->
 # TimeLend
 
-TimeLend es una plataforma donde un usuario crea un compromiso personal, bloquea fondos como garantia, sube evidencia cuando afirma haber cumplido y delega la verificacion al backend y a la IA antes de liberar o redirigir los fondos.
+TimeLend es una plataforma donde un usuario bloquea fondos en Avalanche Fuji, registra metadata off-chain, sube evidencia y deja que el backend resuelva el lifecycle con IA, contrato y Postgres como partes coordinadas.
 
-Este repositorio contiene la base de produccion del proyecto en las siguientes capas:
+## Workspaces
 
-- `frontend`: aplicacion Next.js demo preparada para ser evolucionada por v0.
-- `backend`: API Express en TypeScript con auth por wallet, relay seguro de transacciones, IA, uploads y orquestacion blockchain.
-- `smartContract`: proyecto Hardhat con el contrato TimeLend completo, tests y export de ABI compartida.
-- `database`: paquete Prisma/PostgreSQL con modelos para usuarios, commitments, evidencia y verificaciones.
-- `shared`: tipos, DTOs, enums, constantes, esquemas y ABI reutilizables.
-- `docs`: documentacion de arquitectura, flujo y setup.
+- `frontend`: Next.js demo listo para Vercel y preparado para que v0 solo mejore la UI.
+- `backend`: Express modular adaptado a Vercel Functions bajo `/api/*`.
+- `database`: Prisma + PostgreSQL/Neon.
+- `smartContract`: Hardhat + Solidity para Avalanche Fuji.
+- `shared`: ABI y contratos compartidos.
+- `docs`: deploy, variables, migraciones, API y checklist de demo.
 
 ## Comandos principales
 
 ```bash
 pnpm install
-pnpm build
 pnpm lint
 pnpm typecheck
-pnpm test
-pnpm dev
+pnpm build
+pnpm db:migrate:deploy
 ```
 
 ## Documentacion
 
-- [Vision general](./docs/README.md)
-- [Arquitectura](./docs/architecture/overview.md)
-- [Flujo del sistema](./docs/architecture/system-flow.md)
-- [Setup local](./docs/development/setup.md)
-
-# Tareas a realizar
-- Mostrar avisos de "Cargar evidencia" cuando se pueda apelar
-- Mover base de datos, urls, y todo lo necesario para que la pagina no corra localmente
-- Realizar la pagina con v0
+- [Deploy en Vercel](./docs/deploy/vercel.md)
+- [Variables de entorno](./docs/deploy/environment-variables.md)
+- [Base de datos y migraciones](./docs/deploy/database-and-migrations.md)
+- [API](./docs/api/README.md)
+- [Checklist de demo](./docs/demo/testing-checklist.md)

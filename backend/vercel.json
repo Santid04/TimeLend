@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm --filter @timelend/database build && pnpm build",
+  "crons": [
+    {
+      "path": "/api/automation/finalize-expired-failures",
+      "schedule": "0 3 * * *"
+    }
+  ],
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 300
+    }
+  }
+}

@@ -5,10 +5,19 @@
  */
 const nextConfig = {
   experimental: {
-    externalDir: true
+    externalDir: true,
   },
   reactStrictMode: true,
-  transpilePackages: ["@timelend/shared"]
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@react-native-async-storage/async-storage": false,
+      "pino-pretty": false,
+    };
+
+    return config;
+  },
+  transpilePackages: ["@timelend/shared"],
 };
 
 export default nextConfig;

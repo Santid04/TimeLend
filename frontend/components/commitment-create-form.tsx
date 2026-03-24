@@ -7,10 +7,7 @@
 
 import { useState } from "react";
 
-import {
-  getFailReceiverValidationError,
-  WEB_OWNER_WALLET
-} from "@/lib/commitment-utils";
+import { getFailReceiverValidationError, WEB_OWNER_WALLET } from "@/lib/commitment-utils";
 import type { CreateCommitmentFormValues } from "@/types/frontend";
 
 type CommitmentCreateFormProps = {
@@ -26,7 +23,7 @@ const initialValues: CreateCommitmentFormValues = {
   description: "",
   failReceiver: WEB_OWNER_WALLET,
   title: "",
-  useWebOwnerWallet: true
+  useWebOwnerWallet: true,
 };
 
 /**
@@ -39,7 +36,7 @@ export function CommitmentCreateForm({
   canSubmit,
   isSubmitting,
   onSubmit,
-  userWalletAddress
+  userWalletAddress,
 }: CommitmentCreateFormProps) {
   const [values, setValues] = useState<CreateCommitmentFormValues>(initialValues);
   const [formError, setFormError] = useState<string | null>(null);
@@ -54,7 +51,7 @@ export function CommitmentCreateForm({
     setFormError(null);
     setValues((currentValues) => ({
       ...currentValues,
-      [field]: value
+      [field]: value,
     }));
   }
 
@@ -73,7 +70,7 @@ export function CommitmentCreateForm({
         : currentValues.failReceiver === WEB_OWNER_WALLET
           ? ""
           : currentValues.failReceiver,
-      useWebOwnerWallet
+      useWebOwnerWallet,
     }));
   }
 
@@ -99,7 +96,7 @@ export function CommitmentCreateForm({
     const failReceiverError = getFailReceiverValidationError({
       failReceiver: values.failReceiver,
       useWebOwnerWallet: values.useWebOwnerWallet,
-      walletAddress: userWalletAddress
+      walletAddress: userWalletAddress,
     });
 
     if (failReceiverError !== null) {
@@ -173,7 +170,7 @@ export function CommitmentCreateForm({
               onChange={(event) => toggleUseWebOwnerWallet(event.target.checked)}
               type="checkbox"
             />
-            Use WebOwnerWallet
+            Use system fail receiver
           </span>
           <small className="field-hint">{WEB_OWNER_WALLET}</small>
         </label>
@@ -188,13 +185,17 @@ export function CommitmentCreateForm({
           />
           <small className="field-hint">
             {values.useWebOwnerWallet
-              ? "Locked to the WebOwnerWallet."
+              ? "Locked to the configured system fail receiver."
               : "Use a valid wallet address different from your connected wallet."}
           </small>
         </label>
 
         <div className="form-actions">
-          <button className="button button-primary" disabled={!canSubmit || isSubmitting} type="submit">
+          <button
+            className="button button-primary"
+            disabled={!canSubmit || isSubmitting}
+            type="submit"
+          >
             {isSubmitting ? "Creating..." : "Create commitment"}
           </button>
         </div>

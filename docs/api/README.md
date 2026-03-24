@@ -1,43 +1,82 @@
-<!-- This file documents the initial API surface exposed by the backend scaffold. -->
-<!-- It exists to give frontend and integration work a stable starting contract. -->
-<!-- It fits the system by clarifying what is already available and what is intentionally pending. -->
-# API Inicial
+# API TimeLend
 
-## Endpoints disponibles
+Base URL del backend:
 
-### `GET /health`
+- local: `http://localhost:4000/api`
+- produccion: `https://<backend-project>.vercel.app/api`
 
-Entrega un payload simple para confirmar que el backend está arriba.
+## Respuesta de error
 
-Ejemplo esperado:
+Todas las rutas devuelven errores JSON con esta forma:
 
 ```json
 {
+  "code": "STRING_CODE",
+  "message": "Human readable message",
+  "details": {}
+}
+```
+
+## Publicas
+
+- `GET /api/health`
+  Devuelve estado del servicio.
+- `GET /api/version`
+  Devuelve version del backend y runtime.
+- `POST /api/auth/challenge`
+  Body: `{ "walletAddress": "0x..." }`
+  Emite el challenge a firmar.
+- `POST /api/auth/verify-signature`
+  Body: `{ "walletAddress": "0x...", "signature": "0x..." }`
+  Verifica la firma y devuelve el JWT.
+
+## Auth por wallet
+
+Estas rutas requieren `Authorization: Bearer <jwt>`.
+
+- `POST /api/commitments`
+  Registra off-chain un commitment ya creado on-chain.
+- `GET /api/commitments/:wallet`
+  Lista commitments de la wallet autenticada.
+- `POST /api/commitments/:id/evidence`
+  Multipart form-data.
+  Campos admitidos: `file` (`.pdf` o `.txt`) y/o `textEvidence`.
+- `POST /api/commitments/:id/verify`
+  Encola la verificacion inicial.
+- `POST /api/commitments/:id/appeal`
+  Registra una apelacion ya consumida on-chain por el usuario.
+
+## Internas
+
+Estas rutas requieren `x-internal-api-key: <INTERNAL_API_KEY>`.
+
+- `POST /api/commitments/:id/resolve-appeal`
+  Encola la resolucion de apelacion.
+- `POST /api/commitments/:id/finalize-failed`
+  Finaliza manualmente un failure sin apelacion.
+- `POST /api/commitments/:id/finalize`
+  Alias de compatibilidad hacia `finalize-failed`.
+
+## Automatizacion
+
+Estas rutas aceptan:
+
+- `x-internal-api-key: <INTERNAL_API_KEY>`
+- o `Authorization: Bearer <CRON_SECRET>`
+
+Rutas:
+
+- `GET /api/automation/finalize-expired-failures`
+- `POST /api/automation/finalize-expired-failures`
+
+Respuesta:
+
+```json
+{
+  "failed": 0,
+  "finalized": 0,
+  "scanned": 0,
   "status": "ok",
-  "service": "TimeLend API",
-  "timestamp": "2026-03-23T00:00:00.000Z"
+  "timestamp": "2026-03-24T00:00:00.000Z"
 }
 ```
-
-### `GET /version`
-
-Entrega metadatos mínimos de versión del backend.
-
-Ejemplo esperado:
-
-```json
-{
-  "name": "timelend-backend",
-  "version": "0.1.0",
-  "apiVersion": "v1"
-}
-```
-
-## Próximos endpoints previstos
-
-- autenticación por wallet
-- creación y consulta de compromisos
-- carga de evidencia
-- estado de revisión IA
-- apelaciones
-- administración de resolución blockchain

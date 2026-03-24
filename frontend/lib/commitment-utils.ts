@@ -7,7 +7,11 @@
 
 import { getAddress, isAddress } from "viem";
 
-export const WEB_OWNER_WALLET = "0xC6C9237FbBC370A898366615eAFcBf0a57Bc72a0";
+import { getFrontendRuntimeConfig } from "./env";
+
+const runtimeConfig = getFrontendRuntimeConfig();
+
+export const WEB_OWNER_WALLET = getAddress(runtimeConfig.NEXT_PUBLIC_SYSTEM_FAIL_RECEIVER);
 
 const DATE_ONLY_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 
@@ -42,7 +46,7 @@ export function buildDeadlineFromDateOnly(dateValue: string) {
 
   return {
     iso: deadlineDate.toISOString(),
-    unix: BigInt(Math.floor(deadlineDate.getTime() / 1_000))
+    unix: BigInt(Math.floor(deadlineDate.getTime() / 1_000)),
   };
 }
 
@@ -66,7 +70,7 @@ export function formatDateOnly(dateValue: string | null) {
   return [
     String(parsedDate.getDate()).padStart(2, "0"),
     String(parsedDate.getMonth() + 1).padStart(2, "0"),
-    String(parsedDate.getFullYear())
+    String(parsedDate.getFullYear()),
   ].join("/");
 }
 
@@ -103,4 +107,17 @@ export function getFailReceiverValidationError(input: {
   }
 
   return null;
+}
+
+/**
+ * This function resolves the effective fail receiver that will be used on-chain and off-chain.
+ * It receives the checkbox mode plus the current fail receiver field value.
+ * It returns the normalized wallet address that should be sent to the contract and backend.
+ * It is important because the submit flow should not depend on the visual input state when the system-wallet checkbox is enabled.
+ */
+export function resolveEffectiveFailReceiver(input: {
+  failReceiver: string;
+  useWebOwnerWallet: boolean;
+}) {
+  return getAddress(input.useWebOwnerWallet ? WEB_OWNER_WALLET : input.failReceiver.trim());
 }

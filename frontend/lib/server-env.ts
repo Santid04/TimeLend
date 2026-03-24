@@ -7,7 +7,7 @@ import { z } from "zod";
 
 const serverEnvSchema = z.object({
   API_URL: z.string().url(),
-  INTERNAL_API_KEY: z.string().min(1)
+  INTERNAL_API_KEY: z.string().min(1),
 });
 
 /**
@@ -17,11 +17,13 @@ const serverEnvSchema = z.object({
  * It is important because resolve-appeal and finalize-failed must never require exposing the internal backend key to the browser.
  */
 export function getFrontendServerConfig() {
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL ??
+    process.env.NEXT_PUBLIC_API_BASE_URL ??
+    "http://localhost:4000/api";
+
   return serverEnvSchema.parse({
-    API_URL:
-      process.env.NEXT_PUBLIC_API_URL ??
-      process.env.NEXT_PUBLIC_API_BASE_URL ??
-      "http://localhost:4000",
-    INTERNAL_API_KEY: process.env.INTERNAL_API_KEY
+    API_URL: apiUrl.replace(/\/+$/, ""),
+    INTERNAL_API_KEY: process.env.INTERNAL_API_KEY,
   });
 }

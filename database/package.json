@@ -12,12 +12,13 @@
     }
   },
   "scripts": {
-    "build": "pnpm exec tsc -p tsconfig.json",
+    "build": "pnpm exec prisma generate && pnpm exec tsc -p tsconfig.json",
     "lint": "pnpm exec eslint . --max-warnings=0",
     "typecheck": "pnpm exec tsc --noEmit -p tsconfig.json",
     "clean": "pnpm exec rimraf dist",
     "prisma:generate": "pnpm exec prisma generate",
     "prisma:migrate:dev": "pnpm exec prisma migrate dev",
+    "prisma:migrate:deploy": "pnpm exec prisma migrate deploy",
     "prisma:push": "pnpm exec prisma db push",
     "prisma:studio": "pnpm exec prisma studio"
   },

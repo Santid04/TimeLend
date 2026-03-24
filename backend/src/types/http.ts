@@ -22,3 +22,11 @@ export type AcceptedJobResponse = {
   message: string;
   status: "queued";
 };
+
+export type FinalizationSweepResponse = {
+  failed: number;
+  finalized: number;
+  scanned: number;
+  status: "ok";
+  timestamp: string;
+};

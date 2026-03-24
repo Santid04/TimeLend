@@ -1,6 +1,7 @@
 <!-- This file documents the role of the database workspace in the TimeLend monorepo. -->
 <!-- It exists to explain the persistence model, migration workflow and query patterns. -->
 <!-- It fits the system by giving the persistence layer a clear ownership boundary. -->
+
 # Database
 
 Este workspace centraliza Prisma, el esquema relacional completo de TimeLend y el cliente reutilizable para el backend.
@@ -34,9 +35,15 @@ Este workspace centraliza Prisma, el esquema relacional completo de TimeLend y e
 ```bash
 pnpm --filter @timelend/database prisma:generate
 pnpm --filter @timelend/database prisma:migrate:dev
+pnpm --filter @timelend/database prisma:migrate:deploy
 pnpm --filter @timelend/database prisma:push
 pnpm --filter @timelend/database build
 ```
+
+## Produccion con Neon
+
+- `DATABASE_URL`: URL pooled para runtime serverless.
+- `DIRECT_URL`: URL directa para `prisma migrate deploy`.
 
 ## Nota de migracion local
 
@@ -57,8 +64,8 @@ const commitment = await prisma.commitment.findUnique({
     evidences: { orderBy: { createdAt: "desc" } },
     events: { orderBy: { createdAt: "desc" } },
     user: true,
-    verifications: { orderBy: { createdAt: "desc" } }
-  }
+    verifications: { orderBy: { createdAt: "desc" } },
+  },
 });
 ```
 
@@ -68,8 +75,8 @@ const pendingFinalizations = await prisma.commitment.findMany({
     appealWindowEndsAt: { lte: new Date() },
     appealed: false,
     isProcessing: false,
-    status: "FAILED_PENDING_APPEAL"
-  }
+    status: "FAILED_PENDING_APPEAL",
+  },
 });
 ```
 

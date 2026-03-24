@@ -15,6 +15,9 @@
   "dependencies": {
     "@google/genai": "^1.15.0",
     "@timelend/database": "workspace:*",
+    "@timelend/shared": "workspace:*",
+    "@vercel/blob": "^1.0.1",
+    "@vercel/functions": "^2.2.13",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "ethers": "^6.13.5",

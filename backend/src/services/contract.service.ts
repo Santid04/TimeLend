@@ -239,6 +239,31 @@ export class ContractService {
   }
 
   /**
+   * This function marks a commitment as a clear final failure and immediately pays the fail receiver.
+   * It receives the on-chain commitment identifier.
+   * It returns the resulting transaction hash.
+   * It is important because definitive failures should not remain in escrow when the backend does not allow appeals.
+   */
+  async markFailedFinalOnChain(onchainId: bigint): Promise<ResolutionOnChainResult> {
+    const transaction = await this.systemContract.getFunction("markFailedFinal")(onchainId);
+    const transactionReceipt = await transaction.wait();
+
+    this.parseExpectedEvent(transactionReceipt, "FailedCommitmentFinalized");
+
+    logger.info(
+      {
+        onchainId: onchainId.toString(),
+        txHash: transaction.hash
+      },
+      "Commitment finalized as failed on-chain without appeal window"
+    );
+
+    return {
+      txHash: transaction.hash
+    };
+  }
+
+  /**
    * This function resolves an appealed commitment using the backend system signer.
    * It receives the on-chain commitment identifier and the final appeal decision.
    * It returns the resulting transaction hash.

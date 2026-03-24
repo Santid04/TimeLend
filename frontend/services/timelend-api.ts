@@ -11,7 +11,7 @@ import type {
   CreateCommitmentPayload,
   EvidenceSubmissionInput,
   WalletChallengeResponse,
-  WalletVerificationResponse
+  WalletVerificationResponse,
 } from "@/types/frontend";
 
 type RequestOptions = {
@@ -22,6 +22,34 @@ type RequestOptions = {
 };
 
 /**
+ * This function joins a configured API base URL with a route path safely.
+ * It receives the base URL from environment configuration and the route path used by the caller.
+ * It returns the normalized absolute request URL.
+ * It is important because Vercel environment values may or may not include a trailing slash.
+ */
+function buildRequestUrl(baseUrl: string, path: string) {
+  return `${baseUrl.replace(/\/+$/, "")}${path}`;
+}
+
+/**
+ * This function parses a JSON response body when possible without throwing syntax errors to the UI layer.
+ * It receives the raw response text returned by fetch.
+ * It returns the parsed object or null when the body is empty or not valid JSON.
+ * It is important because production errors may come from proxies or gateways that do not always return JSON.
+ */
+function parseJsonBody(responseText: string) {
+  if (responseText.length === 0) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(responseText) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * This function executes one frontend API request and normalizes error responses.
  * It receives the target path plus method, headers, body and optional bearer token.
  * It returns the parsed JSON payload expected by the caller.
@@ -29,33 +57,37 @@ type RequestOptions = {
  */
 async function requestJson<TResponse>(
   path: string,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
 ): Promise<TResponse> {
   const runtimeConfig = getFrontendRuntimeConfig();
   const requestInit: RequestInit = {
     headers: {
       ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       ...(options.token === undefined ? {} : { Authorization: `Bearer ${options.token}` }),
-      ...options.headers
+      ...options.headers,
     },
-    method: options.method ?? "GET"
+    method: options.method ?? "GET",
   };
 
   if (options.body !== undefined) {
     requestInit.body = options.body;
   }
 
-  const response = await fetch(`${runtimeConfig.NEXT_PUBLIC_API_URL}${path}`, requestInit);
+  const response = await fetch(
+    buildRequestUrl(runtimeConfig.NEXT_PUBLIC_API_URL, path),
+    requestInit,
+  );
 
   const responseText = await response.text();
-  const parsedBody =
-    responseText.length > 0 ? (JSON.parse(responseText) as Record<string, unknown>) : null;
+  const parsedBody = parseJsonBody(responseText);
 
   if (!response.ok) {
     const message =
       typeof parsedBody?.message === "string"
         ? parsedBody.message
-        : `Request failed with status ${response.status}.`;
+        : responseText.length > 0
+          ? responseText
+          : `Request failed with status ${response.status}.`;
 
     throw new Error(message);
   }
@@ -71,15 +103,15 @@ async function requestJson<TResponse>(
  */
 async function requestFrontendJson<TResponse>(
   path: string,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
 ): Promise<TResponse> {
   const requestInit: RequestInit = {
     headers: {
       ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       ...(options.token === undefined ? {} : { Authorization: `Bearer ${options.token}` }),
-      ...options.headers
+      ...options.headers,
     },
-    method: options.method ?? "GET"
+    method: options.method ?? "GET",
   };
 
   if (options.body !== undefined) {
@@ -88,14 +120,15 @@ async function requestFrontendJson<TResponse>(
 
   const response = await fetch(path, requestInit);
   const responseText = await response.text();
-  const parsedBody =
-    responseText.length > 0 ? (JSON.parse(responseText) as Record<string, unknown>) : null;
+  const parsedBody = parseJsonBody(responseText);
 
   if (!response.ok) {
     const message =
       typeof parsedBody?.message === "string"
         ? parsedBody.message
-        : `Request failed with status ${response.status}.`;
+        : responseText.length > 0
+          ? responseText
+          : `Request failed with status ${response.status}.`;
 
     throw new Error(message);
   }
@@ -112,7 +145,7 @@ async function requestFrontendJson<TResponse>(
 export function createWalletChallenge(walletAddress: string) {
   return requestJson<WalletChallengeResponse>("/auth/challenge", {
     body: JSON.stringify({ walletAddress }),
-    method: "POST"
+    method: "POST",
   });
 }
 
@@ -125,7 +158,7 @@ export function createWalletChallenge(walletAddress: string) {
 export function verifyWalletSignature(walletAddress: string, signature: string) {
   return requestJson<WalletVerificationResponse>("/auth/verify-signature", {
     body: JSON.stringify({ signature, walletAddress }),
-    method: "POST"
+    method: "POST",
   });
 }
 
@@ -139,7 +172,7 @@ export function createCommitmentRecord(token: string, payload: CreateCommitmentP
   return requestJson<ApiCommitment>("/commitments", {
     body: JSON.stringify(payload),
     method: "POST",
-    token
+    token,
   });
 }
 
@@ -152,7 +185,7 @@ export function createCommitmentRecord(token: string, payload: CreateCommitmentP
 export async function listCommitments(token: string, walletAddress: string) {
   const response = await requestJson<CommitmentsResponse>(`/commitments/${walletAddress}`, {
     method: "GET",
-    token
+    token,
   });
 
   return response.items;
@@ -167,7 +200,7 @@ export async function listCommitments(token: string, walletAddress: string) {
 export function uploadEvidence(
   token: string,
   commitmentId: string,
-  input: EvidenceSubmissionInput
+  input: EvidenceSubmissionInput,
 ) {
   const formData = new FormData();
   const trimmedTextEvidence = input.textEvidence.trim();
@@ -183,7 +216,7 @@ export function uploadEvidence(
   return requestJson<{ commitment: ApiCommitment }>(`/commitments/${commitmentId}/evidence`, {
     body: formData,
     method: "POST",
-    token
+    token,
   });
 }
 
@@ -197,7 +230,7 @@ export function verifyCommitmentRequest(token: string, commitmentId: string) {
   return requestJson<AcceptedJobResponse>(`/commitments/${commitmentId}/verify`, {
     body: JSON.stringify({}),
     method: "POST",
-    token
+    token,
   });
 }
 
@@ -210,10 +243,10 @@ export function verifyCommitmentRequest(token: string, commitmentId: string) {
 export function recordAppeal(token: string, commitmentId: string, appealTxHash?: string) {
   return requestJson<ApiCommitment>(`/commitments/${commitmentId}/appeal`, {
     body: JSON.stringify({
-      ...(appealTxHash === undefined ? {} : { appealTxHash })
+      ...(appealTxHash === undefined ? {} : { appealTxHash }),
     }),
     method: "POST",
-    token
+    token,
   });
 }
 
@@ -228,8 +261,8 @@ export function resolveAppealDemo(commitmentId: string) {
     `/api/internal/commitments/${commitmentId}/resolve-appeal`,
     {
       body: JSON.stringify({}),
-      method: "POST"
-    }
+      method: "POST",
+    },
   );
 }
 
@@ -244,7 +277,7 @@ export function finalizeFailedDemo(commitmentId: string) {
     `/api/internal/commitments/${commitmentId}/finalize-failed`,
     {
       body: JSON.stringify({}),
-      method: "POST"
-    }
+      method: "POST",
+    },
   );
 }

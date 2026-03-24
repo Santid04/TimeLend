@@ -1,14 +1,16 @@
-<!-- This file is the documentation index for the TimeLend scaffold. -->
-<!-- It exists to centralize the first-level documentation links for the monorepo. -->
-<!-- It fits the system by making architecture and onboarding discoverable from one place. -->
-# Documentación de TimeLend
+# Documentacion de TimeLend
 
-Esta carpeta agrupa la documentación inicial del proyecto para que futuras iteraciones puedan profundizar sin reordenar el repositorio.
+TimeLend queda preparado para desplegarse como dos proyectos separados en Vercel:
 
-## Índice
+- `frontend`: Next.js demo listo para consumir el backend productivo.
+- `backend`: API Express servida como Vercel Function catch-all bajo `/api/*`.
 
-- [Arquitectura general](./architecture/overview.md)
-- [Flujo esperado del sistema](./architecture/system-flow.md)
-- [Estructura de carpetas](./architecture/folder-structure.md)
-- [Setup y ejecución local](./development/setup.md)
-- [API inicial](./api/README.md)
+## Indice
+
+- [Deploy en Vercel](./deploy/vercel.md)
+- [Variables de entorno](./deploy/environment-variables.md)
+- [Base de datos y migraciones](./deploy/database-and-migrations.md)
+- [API disponible](./api/README.md)
+- [Flujo del sistema](./architecture/system-flow.md)
+- [Checklist de demo](./demo/testing-checklist.md)
+- [Setup local](./development/setup.md)

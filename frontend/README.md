@@ -1,6 +1,7 @@
 <!-- This file documents the functional demo frontend for TimeLend. -->
 <!-- It exists to explain the exact local setup, real flow and environment variables used by the Next.js app. -->
 <!-- It fits the system by making the demo UI easy to run while preserving the existing backend and contract architecture. -->
+
 # Frontend
 
 Este workspace contiene el frontend DEMO funcional de `TimeLend`. No es el producto final ni la UI definitiva, pero ya permite recorrer el flujo real del sistema para testing end-to-end.
@@ -34,9 +35,10 @@ Copiá `.env.example` a `.env.local` y completá:
 
 ```env
 NEXT_PUBLIC_APP_NAME=TimeLend Demo
-NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
 NEXT_PUBLIC_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
 NEXT_PUBLIC_CONTRACT_ADDRESS=0x...
+NEXT_PUBLIC_SYSTEM_FAIL_RECEIVER=0xC6C9237FbBC370A898366615eAFcBf0a57Bc72a0
 INTERNAL_API_KEY=tu_clave_interna_del_backend
 ```
 
@@ -44,6 +46,8 @@ Notas:
 
 - `NEXT_PUBLIC_*` queda disponible en el navegador.
 - `INTERNAL_API_KEY` se usa solo en el servidor Next para proxyear `resolve-appeal` y `finalize-failed`.
+- `NEXT_PUBLIC_API_URL` debe apuntar al backend ya con el prefijo `/api`.
+- `NEXT_PUBLIC_SYSTEM_FAIL_RECEIVER` define la wallet que recibira fondos al finalizar un failure sin apelacion exitosa.
 - El contrato debe estar desplegado y la address debe coincidir con `NEXT_PUBLIC_CONTRACT_ADDRESS`.
 
 ## Flujo real del demo

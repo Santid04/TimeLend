@@ -144,12 +144,43 @@ describe("TimeLend", function () {
   });
 
   /**
-   * This test verifies the failure path without appeal after the appeal window expires.
+   * This test verifies the immediate final-failure path used when the backend does not allow appeals.
    * It receives no explicit parameters because the fixture handles deployment state.
    * It returns a promise resolved by the test runner.
-   * It is important because failed commitments must eventually pay the configured receiver safely.
+   * It is important because clear failures should pay the fail receiver immediately.
    */
-  it("marks a commitment as failed and finalizes payout to the fail receiver", async function () {
+  it("marks a commitment as definitively failed and immediately pays the fail receiver", async function () {
+    const fixture = await loadFixture(deployFixture);
+    const deadline = BigInt((await time.latest()) + 3_600);
+    const commitmentId = await createCommitment(fixture, deadline);
+    const beforeBalance = await ethers.provider.getBalance(fixture.failReceiver.address);
+
+    await expect(fixture.backendContract.getFunction("markFailedFinal")(commitmentId))
+      .to.emit(fixture.contract, "FailedCommitmentFinalized")
+      .withArgs(
+        commitmentId,
+        fixture.failReceiver.address,
+        STAKE_AMOUNT,
+        fixture.backend.address
+      );
+
+    const afterBalance = await ethers.provider.getBalance(fixture.failReceiver.address);
+    const commitment = await getCommitment(fixture, commitmentId);
+
+    expect(afterBalance - beforeBalance).to.equal(STAKE_AMOUNT);
+    expect(commitment.status).to.equal(2n);
+    expect(commitment.appealed).to.equal(false);
+    expect(commitment.appealWindowEndsAt).to.equal(0n);
+    expect(commitment.payoutState).to.equal(2n);
+  });
+
+  /**
+   * This test verifies the failure path that keeps funds in escrow while an appeal is still allowed.
+   * It receives no explicit parameters because the fixture handles deployment state.
+   * It returns a promise resolved by the test runner.
+   * It is important because appealable failures must not pay the fail receiver too early.
+   */
+  it("marks a commitment as failed and finalizes payout after the appeal window expires", async function () {
     const fixture = await loadFixture(deployFixture);
     const deadline = BigInt((await time.latest()) + 3_600);
     const commitmentId = await createCommitment(fixture, deadline);
@@ -285,6 +316,9 @@ describe("TimeLend", function () {
     await expect(otherContract.getFunction("markFailed")(commitmentId)).to.be.revertedWith(
       "TimeLend: caller is not backend"
     );
+    await expect(otherContract.getFunction("markFailedFinal")(commitmentId)).to.be.revertedWith(
+      "TimeLend: caller is not backend"
+    );
 
     await fixture.backendContract.getFunction("markFailed")(commitmentId);
     await fixture.userContract.getFunction("appeal")(commitmentId);
@@ -313,6 +347,9 @@ describe("TimeLend", function () {
     await expect(fixture.backendContract.getFunction("markFailed")(commitmentId)).to.be.revertedWith(
       "TimeLend: commitment is not active"
     );
+    await expect(
+      fixture.backendContract.getFunction("markFailedFinal")(commitmentId)
+    ).to.be.revertedWith("TimeLend: commitment is not active");
   });
 
   /**
@@ -334,6 +371,29 @@ describe("TimeLend", function () {
         }
       )
     ).to.be.revertedWith("TimeLend: deadline must be in the future");
+  });
+
+  /**
+   * This test verifies that a user cannot nominate their own wallet as the fail receiver.
+   * It receives no explicit parameters because the fixture handles deployment state.
+   * It returns a promise resolved by the test runner.
+   * It is important because the contract must enforce this safety rule even if a client skips frontend validation.
+   */
+  it("rejects commitment creation when the fail receiver matches the user wallet", async function () {
+    const fixture = await loadFixture(deployFixture);
+    const deadline = BigInt((await time.latest()) + 3_600);
+
+    await expect(
+      fixture.userContract.getFunction("createCommitment")(
+        deadline,
+        fixture.user.address,
+        {
+          value: STAKE_AMOUNT
+        }
+      )
+    ).to.be.revertedWith(
+      "TimeLend: fail receiver must be different from commitment owner"
+    );
   });
 
   /**

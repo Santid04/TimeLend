@@ -1,19 +1,11 @@
-<!-- This file explains how to install and run the TimeLend scaffold locally. -->
-<!-- It exists to provide a deterministic onboarding path for contributors. -->
-<!-- It fits the system by documenting the local workflow before business features are added. -->
 # Setup Local
 
 ## Requisitos
 
-- Node.js 20 o superior
-- pnpm 9 o superior
-- PostgreSQL para etapas con base de datos activa
-
-## Instalación
-
-```bash
-pnpm install
-```
+- Node.js 20+
+- pnpm 9+
+- PostgreSQL local o remoto
+- contrato TimeLend desplegado en Avalanche Fuji
 
 ## Variables de entorno
 
@@ -22,11 +14,16 @@ pnpm install
 3. Copiar `database/.env.example` a `database/.env`.
 4. Copiar `smartContract/.env.example` a `smartContract/.env`.
 
-## Desarrollo
+Valores locales importantes:
 
-## Primer desplegue en local
+- `frontend/.env.local`
+  `NEXT_PUBLIC_API_URL=http://localhost:4000/api`
+- `backend/.env`
+  `FRONTEND_APP_URL=http://localhost:3000`
+- `database/.env`
+  `DATABASE_URL` y `DIRECT_URL`
 
-### Preparar Prisma y el paquete de database:
+## Prisma
 
 ```bash
 pnpm --filter @timelend/database prisma:generate
@@ -34,35 +31,21 @@ pnpm --filter @timelend/database prisma:migrate:dev
 pnpm --filter @timelend/database build
 ```
 
+## Desarrollo
+
 ```bash
 pnpm dev
 ```
 
 Esto levanta:
 
-- frontend demo en `http://localhost:3000`
-- backend API en `http://localhost:4000`
+- frontend: `http://localhost:3000`
+- backend: `http://localhost:4000/api`
 
-### Levantar PostgreSQL en docker para correr en local
-Al volver a iniciar el proyecto localmente, solo correr estos comandos:
-
-```bash
-docker start timelend-postgres
-```
+## Validacion local
 
 ```bash
-pnpm dev
-```
-
-## Comandos útiles
-
-```bash
-pnpm build
 pnpm lint
-pnpm test
-pnpm db:generate
-pnpm contracts:compile
-pnpm contracts:test
-pnpm contracts:export-abi
-pnpm contracts:deploy:fuji
+pnpm typecheck
+pnpm build
 ```

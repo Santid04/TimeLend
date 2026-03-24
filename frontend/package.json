@@ -12,6 +12,7 @@
     "clean": "pnpm exec rimraf .next tsconfig.tsbuildinfo"
   },
   "dependencies": {
+    "@timelend/shared": "workspace:*",
     "@tanstack/react-query": "^5.66.8",
     "next": "^15.2.4",
     "react": "^19.0.0",

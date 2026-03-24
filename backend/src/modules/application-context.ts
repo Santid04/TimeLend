@@ -3,10 +3,11 @@
  * It exists to centralize service, controller and middleware wiring in one audited place.
  * It fits the system by keeping app composition explicit while avoiding duplicate background loops and hot-wallet clients.
  */
-import { logger } from "../config/logger";
+import { AutomationController } from "../controllers/automation.controller";
 import { AuthController } from "../controllers/auth.controller";
 import { CommitmentController } from "../controllers/commitment.controller";
 import { SystemController } from "../controllers/system.controller";
+import { createAutomationAuthMiddleware } from "../middlewares/automation-auth";
 import { createAuthenticationMiddleware } from "../middlewares/authenticate";
 import { createInternalAuthMiddleware } from "../middlewares/internal-auth";
 import { AiService } from "../services/ai.service";
@@ -14,14 +15,17 @@ import { AuthService } from "../services/auth.service";
 import { CommitmentService } from "../services/commitment.service";
 import { ContractService } from "../services/contract.service";
 import { EvidenceService } from "../services/evidence.service";
+import { StorageService } from "../services/storage.service";
 import { SystemService } from "../services/system.service";
 import { TokenService } from "../services/token.service";
 
 export type ApplicationContext = {
+  automationController: AutomationController;
   authController: AuthController;
   authenticate: ReturnType<typeof createAuthenticationMiddleware>;
   commitmentController: CommitmentController;
   commitmentService: CommitmentService;
+  requireAutomation: ReturnType<typeof createAutomationAuthMiddleware>;
   requireInternal: ReturnType<typeof createInternalAuthMiddleware>;
   systemController: SystemController;
 };
@@ -45,21 +49,23 @@ export function getApplicationContext(): ApplicationContext {
   const contractService = new ContractService();
   const aiService = new AiService();
   const evidenceService = new EvidenceService();
-  const commitmentService = new CommitmentService(contractService, aiService, evidenceService);
-
-  void evidenceService.ensureUploadDirectory().catch((error) => {
-    logger.error({ error }, "Failed to ensure the upload directory exists during startup");
-  });
-
-  commitmentService.startMaintenanceLoop();
+  const storageService = new StorageService();
+  const commitmentService = new CommitmentService(
+    contractService,
+    aiService,
+    evidenceService,
+    storageService,
+  );
 
   cachedContext = {
+    automationController: new AutomationController(commitmentService),
     authController: new AuthController(authService),
     authenticate: createAuthenticationMiddleware(tokenService),
     commitmentController: new CommitmentController(commitmentService),
     commitmentService,
+    requireAutomation: createAutomationAuthMiddleware(),
     requireInternal: createInternalAuthMiddleware(),
-    systemController: new SystemController(systemService)
+    systemController: new SystemController(systemService),
   };
 
   return cachedContext;

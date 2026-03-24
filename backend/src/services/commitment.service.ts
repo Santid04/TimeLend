@@ -7,9 +7,10 @@ import {
   CommitmentEventType,
   CommitmentStatus,
   VerificationType,
-  prisma
+  prisma,
 } from "@timelend/database";
 import type { Prisma } from "@timelend/database";
+import { waitUntil } from "@vercel/functions";
 import type { Express } from "express";
 import { getAddress } from "ethers";
 
@@ -17,32 +18,33 @@ import { env } from "../config/env";
 import { logger } from "../config/logger";
 import { InMemoryJobQueue } from "../jobs/in-memory-job-queue";
 import type { AuthenticatedUserContext } from "../types/auth";
-import type { AcceptedJobResponse } from "../types/http";
+import type { AcceptedJobResponse, FinalizationSweepResponse } from "../types/http";
 import type { VerificationJob } from "../types/jobs";
 import { AppError } from "../utils/app-error";
 import type { AiService } from "./ai.service";
 import type { ContractService } from "./contract.service";
 import type { EvidenceService } from "./evidence.service";
+import type { StorageService } from "./storage.service";
 
 const UNCERTAIN_FAILURE_CONFIDENCE_THRESHOLD = 0.6;
 
 const commitmentInclude = {
   events: {
     orderBy: {
-      createdAt: "desc"
-    }
+      createdAt: "desc",
+    },
   },
   evidences: {
     orderBy: {
-      createdAt: "desc"
-    }
+      createdAt: "desc",
+    },
   },
   user: true,
   verifications: {
     orderBy: {
-      createdAt: "desc"
-    }
-  }
+      createdAt: "desc",
+    },
+  },
 } satisfies Prisma.CommitmentInclude;
 
 type CommitmentRecord = Prisma.CommitmentGetPayload<{
@@ -156,7 +158,7 @@ export class CommitmentService {
     async (job) => {
       await this.processVerificationJob(job);
     },
-    1
+    1,
   );
 
   /**
@@ -168,7 +170,8 @@ export class CommitmentService {
   constructor(
     private readonly contractService: ContractService,
     private readonly aiService: AiService,
-    private readonly evidenceService: EvidenceService
+    private readonly evidenceService: EvidenceService,
+    private readonly storageService: StorageService,
   ) {}
 
   /**
@@ -198,20 +201,20 @@ export class CommitmentService {
    */
   async createCommitment(
     auth: AuthenticatedUserContext,
-    input: CreateCommitmentInput
+    input: CreateCommitmentInput,
   ): Promise<PresentedCommitment> {
     await this.assertEvidenceSchemaReady();
     const authenticatedUser = await this.getAuthenticatedUser(auth);
     const normalizedInput = this.normalizeCommitmentInput(input);
     this.assertFailReceiverIsNotUserWallet(
       authenticatedUser.walletAddress,
-      normalizedInput.failReceiver
+      normalizedInput.failReceiver,
     );
     const existingCommitment = await prisma.commitment.findUnique({
       include: commitmentInclude,
       where: {
-        onchainId: normalizedInput.onchainId
-      }
+        onchainId: normalizedInput.onchainId,
+      },
     });
 
     if (existingCommitment !== null) {
@@ -219,19 +222,25 @@ export class CommitmentService {
         throw new AppError(
           409,
           "COMMITMENT_ONCHAIN_ID_TAKEN",
-          "This on-chain commitment is already linked to another user."
+          "This on-chain commitment is already linked to another user.",
         );
       }
 
       return this.presentCommitment(existingCommitment);
     }
 
-    const onChainCommitment = await this.contractService.getCommitmentOnChain(normalizedInput.onchainId);
-    this.assertCreateInputMatchesOnChain(authenticatedUser.walletAddress, normalizedInput, onChainCommitment);
+    const onChainCommitment = await this.contractService.getCommitmentOnChain(
+      normalizedInput.onchainId,
+    );
+    this.assertCreateInputMatchesOnChain(
+      authenticatedUser.walletAddress,
+      normalizedInput,
+      onChainCommitment,
+    );
 
     const derivedStatus = this.mapOnChainStateToDatabaseStatus(
       onChainCommitment.status,
-      onChainCommitment.payoutState
+      onChainCommitment.payoutState,
     );
 
     const createdCommitment = await prisma.commitment.create({
@@ -252,35 +261,35 @@ export class CommitmentService {
           create: [
             {
               metadata: {
-                source: "frontend-onchain-sync"
+                source: "frontend-onchain-sync",
               },
               toStatus: derivedStatus,
               txHash: normalizedInput.createCommitmentTxHash ?? null,
-              type: CommitmentEventType.CREATED
+              type: CommitmentEventType.CREATED,
             },
             ...(onChainCommitment.appealed
               ? [
                   {
                     metadata: {
-                      source: "onchain-appeal-sync"
+                      source: "onchain-appeal-sync",
                     },
-                    type: CommitmentEventType.APPEAL_RECORDED
-                  }
+                    type: CommitmentEventType.APPEAL_RECORDED,
+                  },
                 ]
-              : [])
-          ]
-        }
+              : []),
+          ],
+        },
       },
-      include: commitmentInclude
+      include: commitmentInclude,
     });
 
     logger.info(
       {
         commitmentId: createdCommitment.id,
         onchainId: createdCommitment.onchainId.toString(),
-        walletAddress: authenticatedUser.walletAddress
+        walletAddress: authenticatedUser.walletAddress,
       },
-      "Commitment persisted from on-chain source"
+      "Commitment persisted from on-chain source",
     );
 
     return this.presentCommitment(createdCommitment);
@@ -294,7 +303,7 @@ export class CommitmentService {
    */
   async listCommitmentsForWallet(
     auth: AuthenticatedUserContext,
-    walletAddress: string
+    walletAddress: string,
   ): Promise<PresentedCommitment[]> {
     await this.assertEvidenceSchemaReady();
     const normalizedWalletAddress = getAddress(walletAddress);
@@ -303,7 +312,7 @@ export class CommitmentService {
       throw new AppError(
         403,
         "COMMITMENT_FORBIDDEN",
-        "You can only read commitments owned by the authenticated wallet."
+        "You can only read commitments owned by the authenticated wallet.",
       );
     }
 
@@ -311,15 +320,15 @@ export class CommitmentService {
     const commitments = await prisma.commitment.findMany({
       include: commitmentInclude,
       orderBy: {
-        createdAt: "desc"
+        createdAt: "desc",
       },
       where: {
-        userId: authenticatedUser.id
-      }
+        userId: authenticatedUser.id,
+      },
     });
 
     const normalizedCommitments = await Promise.all(
-      commitments.map((commitment) => this.ensureAppealRecordedEvent(commitment))
+      commitments.map((commitment) => this.ensureAppealRecordedEvent(commitment)),
     );
 
     return normalizedCommitments.map((commitment) => this.presentCommitment(commitment));
@@ -335,16 +344,17 @@ export class CommitmentService {
     auth: AuthenticatedUserContext,
     commitmentId: string,
     input: EvidenceUploadInput,
-    file: Express.Multer.File | undefined
+    file: Express.Multer.File | undefined,
   ): Promise<EvidenceUploadResult> {
     const commitment = await this.getOwnedCommitment(commitmentId, auth.userId);
     const submittedText = this.evidenceService.normalizeSubmittedText(input.textEvidence);
+    let storedFile: Awaited<ReturnType<StorageService["storeEvidenceFile"]>> | null = null;
 
     if (!this.canUploadEvidence(commitment)) {
       throw new AppError(
         409,
         "EVIDENCE_UPLOAD_NOT_ALLOWED",
-        "Evidence cannot be uploaded in the current commitment state."
+        "Evidence cannot be uploaded in the current commitment state.",
       );
     }
 
@@ -352,22 +362,22 @@ export class CommitmentService {
       throw new AppError(
         400,
         "EVIDENCE_REQUIRED",
-        "Provide an evidence file, written evidence, or both."
+        "Provide an evidence file, written evidence, or both.",
       );
     }
 
     try {
       const extractedEvidence =
         file === undefined ? null : await this.evidenceService.ingestUploadedFile(file);
-      const fileUrl =
-        extractedEvidence === null ? null : this.buildFileUrl(extractedEvidence.storedFileName);
+      storedFile = file === undefined ? null : await this.storageService.storeEvidenceFile(file);
+      const fileUrl = storedFile?.fileUrl ?? null;
       const evidenceText = extractedEvidence?.extractedText ?? submittedText;
 
       if (evidenceText === null) {
         throw new AppError(
           400,
           "EVIDENCE_REQUIRED",
-          "Provide an evidence file, written evidence, or both."
+          "Provide an evidence file, written evidence, or both.",
         );
       }
 
@@ -380,10 +390,10 @@ export class CommitmentService {
             fileUrl,
             mimeType: extractedEvidence?.mimeType ?? null,
             originalFileName: extractedEvidence?.originalFileName ?? null,
-            storedFileName: extractedEvidence?.storedFileName ?? null,
+            storedFileName: storedFile?.storedFileName ?? null,
             submittedText,
-            uploadedByUserId: auth.userId
-          }
+            uploadedByUserId: auth.userId,
+          },
         }),
         prisma.commitment.update({
           data: {
@@ -393,17 +403,17 @@ export class CommitmentService {
                   hasFile: extractedEvidence !== null,
                   hasWrittenEvidence: submittedText !== null,
                   ...(fileUrl === null ? {} : { fileUrl }),
-                  ...(extractedEvidence === null ? {} : { mimeType: extractedEvidence.mimeType })
+                  ...(extractedEvidence === null ? {} : { mimeType: extractedEvidence.mimeType }),
                 },
-                type: CommitmentEventType.EVIDENCE_ADDED
-              }
-            }
+                type: CommitmentEventType.EVIDENCE_ADDED,
+              },
+            },
           },
           include: commitmentInclude,
           where: {
-            id: commitment.id
-          }
-        })
+            id: commitment.id,
+          },
+        }),
       ]);
 
       logger.info(
@@ -411,18 +421,18 @@ export class CommitmentService {
           commitmentId: commitment.id,
           evidenceId: evidence.id,
           hasFile: extractedEvidence !== null,
-          hasWrittenEvidence: submittedText !== null
+          hasWrittenEvidence: submittedText !== null,
         },
-        "Evidence stored successfully"
+        "Evidence stored successfully",
       );
 
       return {
         commitment: this.presentCommitment(updatedCommitment),
-        evidence: this.presentEvidence(evidence)
+        evidence: this.presentEvidence(evidence),
       };
     } catch (error) {
-      if (file !== undefined) {
-        await this.evidenceService.removeStoredFile(file.path);
+      if (storedFile !== null) {
+        await this.storageService.removeEvidenceFile(storedFile.fileUrl);
       }
       throw error;
     }
@@ -436,7 +446,7 @@ export class CommitmentService {
    */
   async verifyCommitment(
     auth: AuthenticatedUserContext,
-    commitmentId: string
+    commitmentId: string,
   ): Promise<AcceptedJobResponse> {
     const commitment = await this.getOwnedCommitment(commitmentId, auth.userId);
 
@@ -444,7 +454,7 @@ export class CommitmentService {
       return {
         commitmentId: commitment.id,
         message: "Verification is already in progress for this commitment.",
-        status: "queued"
+        status: "queued",
       };
     }
 
@@ -452,7 +462,7 @@ export class CommitmentService {
       return {
         commitmentId: commitment.id,
         message: "Verification was skipped because this commitment is no longer active.",
-        status: "queued"
+        status: "queued",
       };
     }
 
@@ -462,13 +472,13 @@ export class CommitmentService {
     try {
       await this.appendEvent(commitment.id, {
         metadata: {
-          verificationType: VerificationType.INITIAL
+          verificationType: VerificationType.INITIAL,
         },
-        type: CommitmentEventType.VERIFICATION_STARTED
+        type: CommitmentEventType.VERIFICATION_STARTED,
       });
-      this.verificationQueue.enqueue({
+      this.dispatchVerificationJob({
         commitmentId: commitment.id,
-        type: "initial_verification"
+        type: "initial_verification",
       });
     } catch (error) {
       await this.releaseProcessingLockSafely(commitment.id, "verifyCommitment.enqueue");
@@ -478,7 +488,7 @@ export class CommitmentService {
     return {
       commitmentId: commitment.id,
       message: "Initial verification queued.",
-      status: "queued"
+      status: "queued",
     };
   }
 
@@ -491,7 +501,7 @@ export class CommitmentService {
   async recordAppeal(
     auth: AuthenticatedUserContext,
     commitmentId: string,
-    input: AppealInput
+    input: AppealInput,
   ): Promise<PresentedCommitment> {
     const commitment = await this.getOwnedCommitment(commitmentId, auth.userId);
 
@@ -499,7 +509,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "APPEAL_NOT_ALLOWED",
-        "Only failed commitments pending appeal can record an appeal."
+        "Only failed commitments pending appeal can record an appeal.",
       );
     }
 
@@ -507,12 +517,16 @@ export class CommitmentService {
       throw new AppError(
         409,
         "APPEAL_RECORDING_BLOCKED",
-        "This commitment is currently being processed and cannot record an appeal yet."
+        "This commitment is currently being processed and cannot record an appeal yet.",
       );
     }
 
     if (commitment.appealed) {
-      throw new AppError(409, "APPEAL_ALREADY_RECORDED", "This commitment already recorded an appeal.");
+      throw new AppError(
+        409,
+        "APPEAL_ALREADY_RECORDED",
+        "This commitment already recorded an appeal.",
+      );
     }
 
     const latestInitialVerification = this.getLatestInitialVerification(commitment);
@@ -521,7 +535,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "APPEAL_NOT_ALLOWED",
-        "Appeals are only available for uncertain failed verifications."
+        "Appeals are only available for uncertain failed verifications.",
       );
     }
 
@@ -531,7 +545,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "APPEAL_NOT_FOUND_ONCHAIN",
-        "The on-chain appeal has not been registered yet for this commitment."
+        "The on-chain appeal has not been registered yet for this commitment.",
       );
     }
 
@@ -542,17 +556,17 @@ export class CommitmentService {
         events: {
           create: {
             metadata: {
-              source: "frontend-onchain-appeal-sync"
+              source: "frontend-onchain-appeal-sync",
             },
             txHash: input.appealTxHash ?? null,
-            type: CommitmentEventType.APPEAL_RECORDED
-          }
-        }
+            type: CommitmentEventType.APPEAL_RECORDED,
+          },
+        },
       },
       include: commitmentInclude,
       where: {
-        id: commitment.id
-      }
+        id: commitment.id,
+      },
     });
 
     return this.presentCommitment(updatedCommitment);
@@ -573,13 +587,13 @@ export class CommitmentService {
     try {
       await this.appendEvent(commitment.id, {
         metadata: {
-          verificationType: VerificationType.APPEAL
+          verificationType: VerificationType.APPEAL,
         },
-        type: CommitmentEventType.VERIFICATION_STARTED
+        type: CommitmentEventType.VERIFICATION_STARTED,
       });
-      this.verificationQueue.enqueue({
+      this.dispatchVerificationJob({
         commitmentId: commitment.id,
-        type: "appeal_resolution"
+        type: "appeal_resolution",
       });
     } catch (error) {
       await this.releaseProcessingLockSafely(commitment.id, "resolveAppeal.enqueue");
@@ -589,7 +603,7 @@ export class CommitmentService {
     return {
       commitmentId: commitment.id,
       message: "Appeal resolution queued.",
-      status: "queued"
+      status: "queued",
     };
   }
 
@@ -605,7 +619,7 @@ export class CommitmentService {
 
     await this.acquireProcessingLock(commitment.id, [
       CommitmentStatus.FAILED_PENDING_APPEAL,
-      CommitmentStatus.FAILED_FINAL
+      CommitmentStatus.FAILED_FINAL,
     ]);
     return this.runFailedFinalization(commitment.id);
   }
@@ -616,11 +630,11 @@ export class CommitmentService {
    * It returns a promise that resolves after the current batch finishes.
    * It is important because background maintenance should keep failed commitments progressing to FAILED_FINAL.
    */
-  async finalizeExpiredFailures() {
+  async finalizeExpiredFailures(): Promise<FinalizationSweepResponse> {
     const clearFailureReadyAt = await this.getClearFailureReadyAtCutoff();
     const expiredCommitments = await prisma.commitment.findMany({
       orderBy: {
-        failureMarkedAt: "asc"
+        failureMarkedAt: "asc",
       },
       take: 25,
       where: {
@@ -630,37 +644,48 @@ export class CommitmentService {
         OR: [
           {
             appealWindowEndsAt: {
-              lte: new Date()
+              lte: new Date(),
             },
-            status: CommitmentStatus.FAILED_PENDING_APPEAL
+            status: CommitmentStatus.FAILED_PENDING_APPEAL,
           },
           {
             failureMarkedAt: {
-              lte: clearFailureReadyAt
+              lte: clearFailureReadyAt,
             },
-            status: CommitmentStatus.FAILED_FINAL
-          }
-        ]
-      }
+            status: CommitmentStatus.FAILED_FINAL,
+          },
+        ],
+      },
     });
+    const sweepResult: FinalizationSweepResponse = {
+      failed: 0,
+      finalized: 0,
+      scanned: expiredCommitments.length,
+      status: "ok",
+      timestamp: new Date().toISOString(),
+    };
 
     for (const commitment of expiredCommitments) {
       try {
         await this.acquireProcessingLock(commitment.id, [
           CommitmentStatus.FAILED_PENDING_APPEAL,
-          CommitmentStatus.FAILED_FINAL
+          CommitmentStatus.FAILED_FINAL,
         ]);
         await this.runFailedFinalization(commitment.id);
+        sweepResult.finalized += 1;
       } catch (error) {
+        sweepResult.failed += 1;
         logger.error(
           {
             commitmentId: commitment.id,
-            error
+            error,
           },
-          "Failed to finalize expired commitment"
+          "Failed to finalize expired commitment",
         );
       }
     }
+
+    return sweepResult;
   }
 
   /**
@@ -676,6 +701,25 @@ export class CommitmentService {
     }
 
     await this.processAppealResolution(job.commitmentId);
+  }
+
+  /**
+   * This function dispatches verification work using the best strategy for the current runtime.
+   * It receives the job payload selected by the HTTP layer.
+   * It returns nothing because the background task is managed internally.
+   * It is important because local development and Vercel serverless deployments need different execution primitives.
+   */
+  private dispatchVerificationJob(job: VerificationJob) {
+    if (typeof process.env.VERCEL === "string") {
+      waitUntil(
+        this.processVerificationJob(job).catch((error) => {
+          logger.error({ error, job }, "Vercel background verification job failed");
+        }),
+      );
+      return;
+    }
+
+    this.verificationQueue.enqueue(job);
   }
 
   /**
@@ -695,9 +739,9 @@ export class CommitmentService {
           {
             commitmentId: commitment.id,
             isProcessing: commitment.isProcessing,
-            status: commitment.status
+            status: commitment.status,
           },
-          "Skipped initial verification because the commitment left the expected state"
+          "Skipped initial verification because the commitment left the expected state",
         );
         return;
       }
@@ -705,7 +749,7 @@ export class CommitmentService {
       const latestEvidence = this.getLatestEvidence(commitment);
       const decision = await this.aiService.verifyEvidence(
         this.buildVerificationContext(commitment, latestEvidence),
-        "initial"
+        "initial",
       );
 
       const verification = await prisma.verification.create({
@@ -718,8 +762,8 @@ export class CommitmentService {
           rawResponse: decision.rawResponse as Prisma.InputJsonValue,
           reasoning: decision.reasoning,
           result: decision.success,
-          type: VerificationType.INITIAL
-        }
+          type: VerificationType.INITIAL,
+        },
       });
 
       if (decision.success) {
@@ -738,33 +782,35 @@ export class CommitmentService {
                 metadata: {
                   confidence: decision.confidence,
                   reasoning: decision.reasoning,
-                  verificationId: verification.id
+                  verificationId: verification.id,
                 },
                 toStatus: CommitmentStatus.COMPLETED,
                 txHash: resolution.txHash,
-                type: CommitmentEventType.VERIFIED_COMPLETED
-              }
-            }
+                type: CommitmentEventType.VERIFIED_COMPLETED,
+              },
+            },
           },
           where: {
-            id: commitment.id
-          }
+            id: commitment.id,
+          },
         });
 
         logger.info(
           {
             commitmentId: commitment.id,
             onchainId: commitment.onchainId.toString(),
-            txHash: resolution.txHash
+            txHash: resolution.txHash,
           },
-          "Commitment completed after initial verification"
+          "Commitment completed after initial verification",
         );
 
         return;
       }
 
       const appealAllowed = this.isAppealAllowedForFailedVerification(decision.confidence);
-      const resolution = await this.contractService.markFailedOnChain(commitment.onchainId);
+      const resolution = appealAllowed
+        ? await this.contractService.markFailedOnChain(commitment.onchainId)
+        : await this.contractService.markFailedFinalOnChain(commitment.onchainId);
       const targetStatus = appealAllowed
         ? CommitmentStatus.FAILED_PENDING_APPEAL
         : CommitmentStatus.FAILED_FINAL;
@@ -773,12 +819,16 @@ export class CommitmentService {
         data: {
           ...(appealAllowed
             ? {
-                appealWindowEndsAt: resolution.appealWindowEndsAt ?? null
+                appealWindowEndsAt: resolution.appealWindowEndsAt ?? null,
               }
-            : {}),
+            : {
+                appealWindowEndsAt: null,
+                failedFinalAt: new Date(),
+                finalizeFailedTxHash: resolution.txHash,
+              }),
           failureMarkedAt: new Date(),
           isProcessing: false,
-          markFailedTxHash: resolution.txHash,
+          markFailedTxHash: appealAllowed ? resolution.txHash : null,
           processingStartedAt: null,
           status: targetStatus,
           events: {
@@ -788,17 +838,18 @@ export class CommitmentService {
                 appealAllowed,
                 confidence: decision.confidence,
                 reasoning: decision.reasoning,
-                verificationId: verification.id
+                settledImmediately: !appealAllowed,
+                verificationId: verification.id,
               },
               toStatus: targetStatus,
               txHash: resolution.txHash,
-              type: CommitmentEventType.VERIFIED_FAILED
-            }
-          }
+              type: CommitmentEventType.VERIFIED_FAILED,
+            },
+          },
         },
         where: {
-          id: commitment.id
-        }
+          id: commitment.id,
+        },
       });
 
       logger.info(
@@ -808,9 +859,9 @@ export class CommitmentService {
           confidence: decision.confidence,
           onchainId: commitment.onchainId.toString(),
           targetStatus,
-          txHash: resolution.txHash
+          txHash: resolution.txHash,
         },
-        "Commitment moved to failed state after initial verification"
+        "Commitment moved to failed state after initial verification",
       );
     } catch (error) {
       logger.error({ commitmentId, error }, "Initial verification job failed");
@@ -819,7 +870,7 @@ export class CommitmentService {
       if (lockedCommitmentId !== null) {
         await this.releaseProcessingLockSafely(
           lockedCommitmentId,
-          "processInitialVerification.finally"
+          "processInitialVerification.finally",
         );
       }
     }
@@ -847,25 +898,25 @@ export class CommitmentService {
             appealed: commitment.appealed,
             commitmentId: commitment.id,
             isProcessing: commitment.isProcessing,
-            status: commitment.status
+            status: commitment.status,
           },
-          "Skipped appeal resolution because the commitment left the expected state"
+          "Skipped appeal resolution because the commitment left the expected state",
         );
         return;
       }
 
       const latestEvidence = this.getLatestAppealEvidence(commitment);
       const latestInitialVerification = commitment.verifications.find(
-        (verification) => verification.type === VerificationType.INITIAL
+        (verification) => verification.type === VerificationType.INITIAL,
       );
 
       const decision = await this.aiService.verifyEvidence(
         this.buildVerificationContext(
           commitment,
           latestEvidence,
-          latestInitialVerification?.reasoning
+          latestInitialVerification?.reasoning,
         ),
-        "appeal"
+        "appeal",
       );
 
       const verification = await prisma.verification.create({
@@ -878,13 +929,13 @@ export class CommitmentService {
           rawResponse: decision.rawResponse as Prisma.InputJsonValue,
           reasoning: decision.reasoning,
           result: decision.success,
-          type: VerificationType.APPEAL
-        }
+          type: VerificationType.APPEAL,
+        },
       });
 
       const resolution = await this.contractService.resolveAppealOnChain(
         commitment.onchainId,
-        decision.success
+        decision.success,
       );
       const targetStatus = decision.success
         ? CommitmentStatus.COMPLETED
@@ -904,17 +955,17 @@ export class CommitmentService {
               metadata: {
                 confidence: decision.confidence,
                 reasoning: decision.reasoning,
-                verificationId: verification.id
+                verificationId: verification.id,
               },
               toStatus: targetStatus,
               txHash: resolution.txHash,
-              type: CommitmentEventType.APPEAL_RESOLVED
-            }
-          }
+              type: CommitmentEventType.APPEAL_RESOLVED,
+            },
+          },
         },
         where: {
-          id: commitment.id
-        }
+          id: commitment.id,
+        },
       });
 
       logger.info(
@@ -922,9 +973,9 @@ export class CommitmentService {
           commitmentId: commitment.id,
           onchainId: commitment.onchainId.toString(),
           success: decision.success,
-          txHash: resolution.txHash
+          txHash: resolution.txHash,
         },
-        "Appeal resolved successfully"
+        "Appeal resolved successfully",
       );
     } catch (error) {
       logger.error({ commitmentId, error }, "Appeal resolution job failed");
@@ -933,7 +984,7 @@ export class CommitmentService {
       if (lockedCommitmentId !== null) {
         await this.releaseProcessingLockSafely(
           lockedCommitmentId,
-          "processAppealResolution.finally"
+          "processAppealResolution.finally",
         );
       }
     }
@@ -960,7 +1011,7 @@ export class CommitmentService {
         throw new AppError(
           409,
           "FAILED_FINALIZATION_NOT_ALLOWED",
-          "The commitment is no longer eligible for failed finalization."
+          "The commitment is no longer eligible for failed finalization.",
         );
       }
 
@@ -970,7 +1021,7 @@ export class CommitmentService {
         throw new AppError(
           409,
           "FAILED_FINALIZATION_TOO_EARLY",
-          "The appeal window is still open for this commitment."
+          "The appeal window is still open for this commitment.",
         );
       }
 
@@ -987,14 +1038,14 @@ export class CommitmentService {
               fromStatus: commitment.status,
               toStatus: CommitmentStatus.FAILED_FINAL,
               txHash: resolution.txHash,
-              type: CommitmentEventType.FAILED_FINALIZED
-            }
-          }
+              type: CommitmentEventType.FAILED_FINALIZED,
+            },
+          },
         },
         include: commitmentInclude,
         where: {
-          id: commitment.id
-        }
+          id: commitment.id,
+        },
       });
 
       return this.presentCommitment(updatedCommitment);
@@ -1003,10 +1054,7 @@ export class CommitmentService {
       throw error;
     } finally {
       if (lockedCommitmentId !== null) {
-        await this.releaseProcessingLockSafely(
-          lockedCommitmentId,
-          "runFailedFinalization.finally"
-        );
+        await this.releaseProcessingLockSafely(lockedCommitmentId, "runFailedFinalization.finally");
       }
     }
   }
@@ -1020,8 +1068,8 @@ export class CommitmentService {
   private async getAuthenticatedUser(auth: AuthenticatedUserContext) {
     const user = await prisma.user.findUnique({
       where: {
-        id: auth.userId
-      }
+        id: auth.userId,
+      },
     });
 
     if (user === null || getAddress(user.walletAddress) !== getAddress(auth.walletAddress)) {
@@ -1043,12 +1091,16 @@ export class CommitmentService {
       include: commitmentInclude,
       where: {
         id: commitmentId,
-        userId
-      }
+        userId,
+      },
     });
 
     if (commitment === null) {
-      throw new AppError(404, "COMMITMENT_NOT_FOUND", "Commitment not found for the authenticated user.");
+      throw new AppError(
+        404,
+        "COMMITMENT_NOT_FOUND",
+        "Commitment not found for the authenticated user.",
+      );
     }
 
     return this.ensureAppealRecordedEvent(commitment);
@@ -1065,8 +1117,8 @@ export class CommitmentService {
     const commitment = await prisma.commitment.findUnique({
       include: commitmentInclude,
       where: {
-        id: commitmentId
-      }
+        id: commitmentId,
+      },
     });
 
     if (commitment === null) {
@@ -1097,7 +1149,7 @@ export class CommitmentService {
       description: input.description.trim(),
       failReceiver: getAddress(input.failReceiver),
       onchainId: BigInt(input.onchainId),
-      title: input.title.trim()
+      title: input.title.trim(),
     };
   }
 
@@ -1110,13 +1162,13 @@ export class CommitmentService {
   private assertCreateInputMatchesOnChain(
     walletAddress: string,
     input: ReturnType<CommitmentService["normalizeCommitmentInput"]>,
-    onChainCommitment: Awaited<ReturnType<ContractService["getCommitmentOnChain"]>>
+    onChainCommitment: Awaited<ReturnType<ContractService["getCommitmentOnChain"]>>,
   ) {
     if (getAddress(onChainCommitment.user) !== getAddress(walletAddress)) {
       throw new AppError(
         409,
         "CHAIN_USER_MISMATCH",
-        "The on-chain commitment belongs to a different wallet."
+        "The on-chain commitment belongs to a different wallet.",
       );
     }
 
@@ -1124,7 +1176,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "CHAIN_AMOUNT_MISMATCH",
-        "The provided amount does not match the on-chain commitment."
+        "The provided amount does not match the on-chain commitment.",
       );
     }
 
@@ -1132,7 +1184,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "CHAIN_DEADLINE_MISMATCH",
-        "The provided deadline does not match the on-chain commitment."
+        "The provided deadline does not match the on-chain commitment.",
       );
     }
 
@@ -1140,7 +1192,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "CHAIN_FAIL_RECEIVER_MISMATCH",
-        "The provided fail receiver does not match the on-chain commitment."
+        "The provided fail receiver does not match the on-chain commitment.",
       );
     }
   }
@@ -1156,7 +1208,7 @@ export class CommitmentService {
       throw new AppError(
         400,
         "FAIL_RECEIVER_INVALID",
-        "Fail receiver must be different from the authenticated wallet address."
+        "Fail receiver must be different from the authenticated wallet address.",
       );
     }
   }
@@ -1186,7 +1238,7 @@ export class CommitmentService {
       throw new AppError(
         503,
         "DATABASE_MIGRATION_REQUIRED",
-        "The database schema is outdated. Apply the latest Prisma migration before using commitment routes."
+        "The database schema is outdated. Apply the latest Prisma migration before using commitment routes.",
       );
     }
 
@@ -1219,7 +1271,7 @@ export class CommitmentService {
     throw new AppError(
       409,
       "CHAIN_STATE_UNSUPPORTED",
-      "The on-chain commitment state cannot be mapped to a supported database status."
+      "The on-chain commitment state cannot be mapped to a supported database status.",
     );
   }
 
@@ -1248,7 +1300,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "VERIFICATION_NOT_ALLOWED",
-        "Only active commitments can enter initial verification."
+        "Only active commitments can enter initial verification.",
       );
     }
 
@@ -1256,7 +1308,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "VERIFICATION_ALREADY_RUNNING",
-        "This commitment is already being processed."
+        "This commitment is already being processed.",
       );
     }
   }
@@ -1272,7 +1324,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "APPEAL_RESOLUTION_NOT_ALLOWED",
-        "This commitment is not ready for appeal resolution."
+        "This commitment is not ready for appeal resolution.",
       );
     }
 
@@ -1280,7 +1332,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "APPEAL_RESOLUTION_ALREADY_RUNNING",
-        "This commitment is already being processed."
+        "This commitment is already being processed.",
       );
     }
   }
@@ -1298,7 +1350,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "APPEAL_NOT_ALLOWED",
-        "Appeals are only available for uncertain failed verifications."
+        "Appeals are only available for uncertain failed verifications.",
       );
     }
 
@@ -1319,7 +1371,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "FAILED_FINALIZATION_NOT_ALLOWED",
-        "Only failed commitments awaiting definitive settlement can be finalized."
+        "Only failed commitments awaiting definitive settlement can be finalized.",
       );
     }
 
@@ -1327,7 +1379,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "FAILED_FINALIZATION_BLOCKED",
-        "Appealed commitments must be resolved through the appeal workflow."
+        "Appealed commitments must be resolved through the appeal workflow.",
       );
     }
 
@@ -1335,7 +1387,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "FAILED_FINALIZATION_ALREADY_RUNNING",
-        "This commitment is already being processed."
+        "This commitment is already being processed.",
       );
     }
 
@@ -1343,7 +1395,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "FAILED_FINALIZATION_NOT_ALLOWED",
-        "This commitment was already finalized."
+        "This commitment was already finalized.",
       );
     }
 
@@ -1353,7 +1405,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "FAILED_FINALIZATION_TOO_EARLY",
-        "The appeal window is still open for this commitment."
+        "The appeal window is still open for this commitment.",
       );
     }
   }
@@ -1368,22 +1420,22 @@ export class CommitmentService {
     const updatedRows = await prisma.commitment.updateMany({
       data: {
         isProcessing: true,
-        processingStartedAt: new Date()
+        processingStartedAt: new Date(),
       },
       where: {
         id: commitmentId,
         isProcessing: false,
         status: {
-          in: allowedStatuses
-        }
-      }
+          in: allowedStatuses,
+        },
+      },
     });
 
     if (updatedRows.count !== 1) {
       throw new AppError(
         409,
         "PROCESSING_LOCK_UNAVAILABLE",
-        "The commitment could not acquire its processing lock."
+        "The commitment could not acquire its processing lock.",
       );
     }
   }
@@ -1398,11 +1450,11 @@ export class CommitmentService {
     await prisma.commitment.update({
       data: {
         isProcessing: false,
-        processingStartedAt: null
+        processingStartedAt: null,
       },
       where: {
-        id: commitmentId
-      }
+        id: commitmentId,
+      },
     });
   }
 
@@ -1420,9 +1472,9 @@ export class CommitmentService {
         {
           commitmentId,
           context,
-          error
+          error,
         },
-        "Failed to release processing lock safely"
+        "Failed to release processing lock safely",
       );
     }
   }
@@ -1441,7 +1493,7 @@ export class CommitmentService {
       toStatus?: CommitmentStatus;
       txHash?: string;
       type: CommitmentEventType;
-    }
+    },
   ) {
     await prisma.commitmentEvent.create({
       data: {
@@ -1450,8 +1502,8 @@ export class CommitmentService {
         ...(event.metadata === undefined ? {} : { metadata: event.metadata }),
         toStatus: event.toStatus ?? null,
         txHash: event.txHash ?? null,
-        type: event.type
-      }
+        type: event.type,
+      },
     });
   }
 
@@ -1468,7 +1520,7 @@ export class CommitmentService {
       throw new AppError(
         409,
         "EVIDENCE_NOT_FOUND",
-        "The commitment does not have evidence ready for verification."
+        "The commitment does not have evidence ready for verification.",
       );
     }
 
@@ -1483,14 +1535,14 @@ export class CommitmentService {
    */
   private getLatestInitialVerification(commitment: CommitmentRecord) {
     const latestInitialVerification = commitment.verifications.find(
-      (verification) => verification.type === VerificationType.INITIAL
+      (verification) => verification.type === VerificationType.INITIAL,
     );
 
     if (latestInitialVerification === undefined || latestInitialVerification.result) {
       throw new AppError(
         409,
         "APPEAL_NOT_ALLOWED",
-        "Appeals require an initial failed verification."
+        "Appeals require an initial failed verification.",
       );
     }
 
@@ -1515,26 +1567,26 @@ export class CommitmentService {
    */
   private getLatestAppealEvidence(commitment: CommitmentRecord) {
     const appealRecordedEvent = commitment.events.find(
-      (event) => event.type === CommitmentEventType.APPEAL_RECORDED
+      (event) => event.type === CommitmentEventType.APPEAL_RECORDED,
     );
 
     if (appealRecordedEvent === undefined) {
       throw new AppError(
         409,
         "APPEAL_EVENT_MISSING",
-        "Appeal resolution requires a recorded appeal event before new evidence can be evaluated."
+        "Appeal resolution requires a recorded appeal event before new evidence can be evaluated.",
       );
     }
 
     const latestAppealEvidence = commitment.evidences.find(
-      (evidence) => evidence.createdAt > appealRecordedEvent.createdAt
+      (evidence) => evidence.createdAt > appealRecordedEvent.createdAt,
     );
 
     if (latestAppealEvidence === undefined) {
       throw new AppError(
         409,
         "APPEAL_REQUIRES_NEW_EVIDENCE",
-        "Upload appeal evidence or provide more explicit proof before resolving the appeal."
+        "Upload appeal evidence or provide more explicit proof before resolving the appeal.",
       );
     }
 
@@ -1561,16 +1613,16 @@ export class CommitmentService {
         events: {
           create: {
             metadata: {
-              source: "legacy-appeal-event-backfill"
+              source: "legacy-appeal-event-backfill",
             },
-            type: CommitmentEventType.APPEAL_RECORDED
-          }
-        }
+            type: CommitmentEventType.APPEAL_RECORDED,
+          },
+        },
       },
       include: commitmentInclude,
       where: {
-        id: commitment.id
-      }
+        id: commitment.id,
+      },
     });
   }
 
@@ -1614,13 +1666,13 @@ export class CommitmentService {
   private buildVerificationContext(
     commitment: CommitmentRecord,
     evidence: CommitmentRecord["evidences"][number],
-    previousReasoning?: string
+    previousReasoning?: string,
   ) {
     const fileEvidenceText =
       evidence.originalFileName !== null ? evidence.extractedText : undefined;
     const writtenEvidenceText = evidence.submittedText ?? undefined;
     const evidenceTextParts = [fileEvidenceText, writtenEvidenceText].filter(
-      (value): value is string => value !== undefined
+      (value): value is string => value !== undefined,
     );
 
     return {
@@ -1630,19 +1682,8 @@ export class CommitmentService {
       ...(fileEvidenceText === undefined ? {} : { fileEvidenceText }),
       ...(previousReasoning === undefined ? {} : { previousReasoning }),
       title: commitment.title,
-      ...(writtenEvidenceText === undefined ? {} : { writtenEvidenceText })
+      ...(writtenEvidenceText === undefined ? {} : { writtenEvidenceText }),
     };
-  }
-
-  /**
-   * This function converts the stored filename into the persisted logical file URL.
-   * It receives the stored filename generated by the upload layer.
-   * It returns a normalized file URL string.
-   * It is important because the database should store a stable file locator instead of an absolute machine path.
-   */
-  private buildFileUrl(storedFileName: string) {
-    const normalizedDirectory = env.UPLOAD_DIR.replace(/\\/g, "/").replace(/^\/+/, "");
-    return `/${normalizedDirectory}/${storedFileName}`;
   }
 
   /**
@@ -1679,8 +1720,8 @@ export class CommitmentService {
       updatedAt: commitment.updatedAt,
       userWalletAddress: commitment.user.walletAddress,
       verifications: commitment.verifications.map((verification) =>
-        this.presentVerification(verification)
-      )
+        this.presentVerification(verification),
+      ),
     };
   }
 
@@ -1700,7 +1741,7 @@ export class CommitmentService {
       mimeType: evidence.mimeType,
       originalFileName: evidence.originalFileName,
       storedFileName: evidence.storedFileName,
-      submittedText: evidence.submittedText
+      submittedText: evidence.submittedText,
     };
   }
 
@@ -1711,7 +1752,7 @@ export class CommitmentService {
    * It is important because AI reasoning is part of the core product trust model.
    */
   private presentVerification(
-    verification: CommitmentRecord["verifications"][number]
+    verification: CommitmentRecord["verifications"][number],
   ): PresentedVerification {
     return {
       confidence: verification.confidence,
@@ -1722,7 +1763,7 @@ export class CommitmentService {
       provider: verification.provider,
       reasoning: verification.reasoning,
       result: verification.result,
-      type: verification.type
+      type: verification.type,
     };
   }
 
@@ -1740,7 +1781,7 @@ export class CommitmentService {
       metadata: event.metadata,
       toStatus: event.toStatus,
       txHash: event.txHash,
-      type: event.type
+      type: event.type,
     };
   }
 }

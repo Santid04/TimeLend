@@ -10,6 +10,7 @@ import helmet from "helmet";
 
 import { env } from "./config/env";
 import { createHttpLogger } from "./config/logger";
+import { AppError } from "./utils/app-error";
 import { getApplicationContext } from "./modules/application-context";
 import { errorHandler } from "./middlewares/error-handler";
 import { notFoundMiddleware } from "./middlewares/not-found";
@@ -25,6 +26,9 @@ export function createApp(): Express {
   getApplicationContext();
 
   const app = express();
+  const allowedOrigins = env.FRONTEND_APP_URL.split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
 
   /**
    * This middleware block configures the shared HTTP protections and request parsing.
@@ -34,19 +38,28 @@ export function createApp(): Express {
    */
   app.disable("x-powered-by");
   app.set("json replacer", (_key: string, value: unknown) =>
-    typeof value === "bigint" ? value.toString() : value
+    typeof value === "bigint" ? value.toString() : value,
   );
   app.set("trust proxy", 1);
   app.use(createHttpLogger());
   app.use(helmet());
   app.use(
     cors({
-      origin: env.FRONTEND_APP_URL
-    })
+      origin(requestOrigin, callback) {
+        if (requestOrigin === undefined || allowedOrigins.includes(requestOrigin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(
+          new AppError(403, "CORS_ORIGIN_FORBIDDEN", "Request origin is not allowed by CORS."),
+        );
+      },
+    }),
   );
   app.use(express.json({ limit: "1mb" }));
 
-  app.use(createApiRouter());
+  app.use("/api", createApiRouter());
   app.use(notFoundMiddleware);
   app.use(errorHandler);
 

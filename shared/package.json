@@ -9,8 +9,13 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./abi/TimeLend.json": "./abi/TimeLend.json"
   },
+  "files": [
+    "abi",
+    "dist"
+  ],
   "scripts": {
     "build": "pnpm exec tsc -p tsconfig.json",
     "lint": "pnpm exec eslint . --max-warnings=0",

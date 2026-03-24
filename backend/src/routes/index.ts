@@ -7,6 +7,7 @@ import { Router } from "express";
 import type { Router as ExpressRouter } from "express";
 
 import { getApplicationContext } from "../modules/application-context";
+import { createAutomationRouter } from "./automation.routes";
 import { createAuthRouter } from "./auth.routes";
 import { createCommitmentRouter } from "./commitment.routes";
 import { createSystemRouter } from "./system.routes";
@@ -22,14 +23,21 @@ export function createApiRouter(): ExpressRouter {
   const router = Router();
 
   router.use(createSystemRouter(applicationContext.systemController));
+  router.use(
+    "/automation",
+    createAutomationRouter({
+      automationController: applicationContext.automationController,
+      requireAutomation: applicationContext.requireAutomation,
+    }),
+  );
   router.use("/auth", createAuthRouter(applicationContext.authController));
   router.use(
     "/commitments",
     createCommitmentRouter({
       authenticate: applicationContext.authenticate,
       commitmentController: applicationContext.commitmentController,
-      requireInternal: applicationContext.requireInternal
-    })
+      requireInternal: applicationContext.requireInternal,
+    }),
   );
 
   return router;

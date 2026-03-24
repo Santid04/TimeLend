@@ -5,7 +5,6 @@
  */
 "use client";
 
-import { getAddress } from "viem";
 import { useState } from "react";
 
 import { CommitmentCard } from "@/components/commitment-card";
@@ -13,7 +12,8 @@ import { CommitmentCreateForm } from "@/components/commitment-create-form";
 import { WalletSessionPanel } from "@/components/wallet-session-panel";
 import {
   buildDeadlineFromDateOnly,
-  getFailReceiverValidationError
+  getFailReceiverValidationError,
+  resolveEffectiveFailReceiver,
 } from "@/lib/commitment-utils";
 import { getFrontendRuntimeConfig } from "@/lib/env";
 import { useCommitmentsDashboard } from "@/hooks/use-commitments-dashboard";
@@ -25,12 +25,12 @@ import {
   recordAppeal,
   resolveAppealDemo,
   uploadEvidence,
-  verifyCommitmentRequest
+  verifyCommitmentRequest,
 } from "@/services/timelend-api";
 import type {
   ApiCommitment,
   CreateCommitmentFormValues,
-  EvidenceSubmissionInput
+  EvidenceSubmissionInput,
 } from "@/types/frontend";
 
 /**
@@ -54,7 +54,7 @@ export function DemoWorkbench() {
     isOnSupportedChain,
     session,
     sessionError,
-    switchToSupportedChain
+    switchToSupportedChain,
   } = useWalletSession();
   const { appealCommitmentWithWallet, createCommitmentWithWallet, walletReady } =
     useTimeLendWalletActions();
@@ -91,19 +91,23 @@ export function DemoWorkbench() {
       const failReceiverError = getFailReceiverValidationError({
         failReceiver: values.failReceiver,
         useWebOwnerWallet: values.useWebOwnerWallet,
-        walletAddress: address
+        walletAddress: address,
       });
 
       if (failReceiverError !== null) {
         throw new Error(failReceiverError);
       }
 
+      const effectiveFailReceiver = resolveEffectiveFailReceiver({
+        failReceiver: values.failReceiver,
+        useWebOwnerWallet: values.useWebOwnerWallet,
+      });
       const deadline = buildDeadlineFromDateOnly(values.deadlineDate);
       const onChainCommitment = await createCommitmentWithWallet({
         amountAvax: values.amountAvax,
         deadlineUnix: deadline.unix,
-        failReceiver: values.failReceiver,
-        walletAddress: address
+        failReceiver: effectiveFailReceiver,
+        walletAddress: address,
       });
 
       await createCommitmentRecord(session.token, {
@@ -111,18 +115,17 @@ export function DemoWorkbench() {
         createCommitmentTxHash: onChainCommitment.txHash,
         deadline: deadline.iso,
         description: values.description.trim(),
-        failReceiver: getAddress(values.failReceiver),
+        failReceiver: effectiveFailReceiver,
         onchainId: onChainCommitment.onchainId,
-        title: values.title.trim()
+        title: values.title.trim(),
       });
 
       setPageMessage(
-        `Commitment created successfully. On-chain id: ${onChainCommitment.onchainId}.`
+        `Commitment created successfully. On-chain id: ${onChainCommitment.onchainId}. Fail receiver: ${effectiveFailReceiver}.`,
       );
       await refreshCommitments();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to create the commitment.";
+      const message = error instanceof Error ? error.message : "Unable to create the commitment.";
       setCreateError(message);
       throw error;
     } finally {
@@ -213,8 +216,8 @@ export function DemoWorkbench() {
           <p className="section-label">TimeLend Demo</p>
           <h1>Functional frontend for end-to-end testing</h1>
           <p className="hero-copy">
-            This screen lets you connect a wallet, create the escrow on-chain, sync the
-            backend record, upload evidence and drive the full verification flow.
+            This screen lets you connect a wallet, create the escrow on-chain, sync the backend
+            record, upload evidence and drive the full verification flow.
           </p>
         </div>
       </section>

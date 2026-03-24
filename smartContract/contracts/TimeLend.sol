@@ -227,6 +227,10 @@ contract TimeLend is Ownable, ReentrancyGuard {
         require(msg.value > 0, "TimeLend: stake amount must be greater than zero");
         require(deadline > block.timestamp, "TimeLend: deadline must be in the future");
         require(failReceiver != address(0), "TimeLend: fail receiver is zero address");
+        require(
+            failReceiver != msg.sender,
+            "TimeLend: fail receiver must be different from commitment owner"
+        );
 
         commitmentId = ++commitmentCount;
 
@@ -291,6 +295,35 @@ contract TimeLend is Ownable, ReentrancyGuard {
             commitment.failReceiver,
             commitment.amount,
             commitment.appealWindowEndsAt
+        );
+    }
+
+    /**
+     * @notice Marks an active commitment as definitively failed and immediately pays the fail receiver.
+     * @param commitmentId The identifier of the commitment being marked as a clear final failure.
+     * @dev This path is used when the off-chain decision is definitive and no appeal should be offered.
+     */
+    function markFailedFinal(uint256 commitmentId) external onlyBackend nonReentrant {
+        Commitment storage commitment = _getExistingCommitment(commitmentId);
+
+        require(commitment.status == Status.Active, "TimeLend: commitment is not active");
+        require(
+            commitment.payoutState == PayoutState.Escrowed,
+            "TimeLend: commitment payout already released"
+        );
+
+        commitment.status = Status.Failed;
+        commitment.failureMarkedAt = block.timestamp;
+        commitment.appealWindowEndsAt = 0;
+        commitment.payoutState = PayoutState.ReleasedToFailReceiver;
+
+        _sendValue(commitment.failReceiver, commitment.amount);
+
+        emit FailedCommitmentFinalized(
+            commitmentId,
+            commitment.failReceiver,
+            commitment.amount,
+            msg.sender
         );
     }
 

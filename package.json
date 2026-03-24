@@ -23,7 +23,8 @@
     "contracts:export-abi": "pnpm --filter smartContract abi:export",
     "contracts:deploy:fuji": "pnpm --filter smartContract deploy:fuji",
     "db:generate": "pnpm --filter database prisma:generate",
-    "db:migrate:dev": "pnpm --filter database prisma:migrate:dev"
+    "db:migrate:dev": "pnpm --filter database prisma:migrate:dev",
+    "db:migrate:deploy": "pnpm --filter database prisma:migrate:deploy"
   },
   "devDependencies": {
     "@eslint/js": "^9.23.0",

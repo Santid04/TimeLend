@@ -1,36 +1,39 @@
-<!-- This file documents the expected functional flow of TimeLend. -->
-<!-- It exists to align future implementations around the same end-to-end lifecycle. -->
-<!-- It fits the system by turning the product idea into an auditable technical sequence. -->
-# Flujo Esperado del Sistema
+# Flujo del sistema
 
-## Flujo de alto nivel
+## End-to-end implementado
 
-1. El usuario conecta su wallet desde el frontend.
-2. El frontend solicita al backend el inicio de sesión o la validación del usuario.
-3. El usuario crea un compromiso con monto, deadline y wallet destino en caso de fallo.
-4. El backend valida datos, registra persistencia y prepara la operación blockchain.
-5. El backend, usando la wallet del sistema, interactúa con el smart contract.
-6. El usuario sube evidencia al declarar que cumplió la tarea.
-7. El backend envía la evidencia al motor de IA para revisión.
-8. Si la IA aprueba, el backend marca el commitment como completado y el contrato devuelve los fondos al usuario.
-9. Si la IA rechaza, el backend marca el commitment como fallido y se abre una única ventana de apelación.
-10. Si el usuario apela, el backend resuelve la apelación y el contrato libera fondos al usuario o al destino de fallo.
-11. Si no hay apelación y vence la ventana, el backend finaliza el fallo y el contrato redirige los fondos al destino configurado.
+1. El usuario conecta su wallet en el frontend.
+2. El frontend pide un challenge al backend y la wallet firma el mensaje.
+3. El frontend crea el commitment on-chain en Avalanche Fuji usando la wallet del usuario.
+4. El frontend sincroniza ese commitment en el backend, que valida el `onchainId` contra el contrato.
+5. El usuario sube evidencia como archivo `.pdf` o `.txt`, texto libre, o ambos.
+6. El backend persiste la evidencia en Postgres y guarda el archivo en storage persistente.
+7. El backend ejecuta la verificacion con Gemini si hay `GEMINI_API_KEY`; si no, usa el evaluador mock para demo.
+8. Segun el resultado:
+   `success`: el backend llama `markCompleted` y actualiza la DB a `COMPLETED`.
+   `fail` incierto: el backend llama `markFailed` y abre la ventana de apelacion.
+   `fail` claro: el backend llama `markFailedFinal` y paga inmediatamente al `failReceiver`.
+9. Si el usuario apela:
+   primero consume `appeal()` on-chain desde la wallet.
+   luego sincroniza la apelacion en el backend.
+10. El backend resuelve la apelacion con IA y llama `resolveAppeal`.
+11. Si no hay apelacion y vence la ventana, el backend puede cerrar el caso por:
+    boton interno de demo.
+    cron productivo en Vercel.
+12. El frontend refresca el dashboard y refleja el nuevo estado, hashes de tx, evidencias y reasoning.
 
-## Qué queda implementado ahora
+## Modos de ejecucion
 
-- estructura técnica del monorepo
-- frontend demo mínimo
-- backend con endpoints de salud y versión
-- contrato on-chain completo con stake, resolución y apelación
-- esquema Prisma inicial
-- paquete shared para reutilización futura
+- desarrollo local:
+  verificacion y apelaciones usan una cola en memoria.
+  la finalizacion automatica usa un loop local.
+- Vercel:
+  verificacion y resolucion de apelaciones usan `waitUntil()` para background work serverless.
+  la finalizacion automatica usa `Cron Jobs` contra `/api/automation/finalize-expired-failures`.
 
-## Qué queda pendiente para etapas siguientes
+## Source of truth
 
-- autenticación wallet real
-- contratos con lógica completa
-- persistencia completa de evidencia y apelaciones
-- integración IA real
-- panel de usuario
-- observabilidad y despliegue final
+- contrato:
+  fondos, ownership on-chain, estado financiero definitivo.
+- Postgres:
+  metadata del commitment, evidencia, verificaciones IA, historial y estado de producto.

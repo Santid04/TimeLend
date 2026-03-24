@@ -199,6 +199,12 @@ export function CommitmentCard({
           <strong>{commitment.evidences.length} entries</strong>
           <small>Latest: {describeEvidenceEntry(latestEvidence)}</small>
         </div>
+
+        <div className="stat-box">
+          <span>Fail receiver</span>
+          <strong>{commitment.failReceiver}</strong>
+          <small>Payout only happens after final on-chain settlement.</small>
+        </div>
       </div>
 
       {latestVerification !== null ? (

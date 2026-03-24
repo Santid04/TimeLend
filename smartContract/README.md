@@ -22,12 +22,16 @@ Este workspace usa `Hardhat + Solidity` para la capa on-chain definitiva de `Tim
 
 ## Nota de diseno importante
 
-Para que una apelacion exitosa sea posible sin dejar al contrato insolvente, `markFailed` no libera fondos inmediatamente. En cambio:
+Para que una apelacion exitosa sea posible sin dejar al contrato insolvente, el contrato separa dos caminos de failure:
 
-1. el backend marca el failure
-2. se abre una ventana de apelacion
-3. si el usuario apela, el backend resuelve la apelacion
-4. si no apela, el backend finaliza el failure y recien ahi se paga al `failReceiver`
+1. si el failure admite apelacion:
+   el backend usa `markFailed`
+   se abre una ventana de apelacion
+   si el usuario apela, el backend resuelve la apelacion
+   si no apela, el backend finaliza el failure y recien ahi se paga al `failReceiver`
+2. si el failure es definitivo y no admite apelacion:
+   el backend usa `markFailedFinal`
+   los fondos se transfieren inmediatamente al `failReceiver`
 
 Esta extension es deliberada y necesaria para un sistema seguro.
 

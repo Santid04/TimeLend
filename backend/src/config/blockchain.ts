@@ -6,7 +6,7 @@
 import { Contract, Interface, JsonRpcProvider, Wallet } from "ethers";
 import type { InterfaceAbi } from "ethers";
 
-import timeLendArtifact from "../../../shared/abi/TimeLend.json";
+import timeLendArtifact from "@timelend/shared/abi/TimeLend.json";
 
 import { env } from "./env";
 
