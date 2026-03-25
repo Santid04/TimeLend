@@ -24,6 +24,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "TimeLend",
   description: "Premium TimeLend demo for wallet auth, on-chain commitments, and AI verification.",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 const bodyFont = Manrope({

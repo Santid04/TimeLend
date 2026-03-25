@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
@@ -33,8 +34,15 @@ export function SiteNavigation() {
     <header className="sticky top-4 z-50">
       <div className="glass-noise mx-auto mt-4 flex w-full max-w-7xl items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 shadow-[0_20px_60px_-28px_rgba(2,6,23,0.95)] backdrop-blur-xl sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-xl border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(76,214,255,0.18),rgba(99,102,241,0.28))] text-sm font-semibold text-white shadow-[0_12px_30px_-18px_rgba(76,214,255,0.85)]">
-            TL
+          <div className="flex h-9 shrink-0 items-center">
+            <Image
+              alt="TimeLend logo"
+              className="h-8 w-auto object-contain drop-shadow-[0_10px_24px_rgba(76,214,255,0.18)] sm:h-9"
+              height={36}
+              priority
+              src="/logo.png"
+              width={144}
+            />
           </div>
 
           <div className="min-w-0">
