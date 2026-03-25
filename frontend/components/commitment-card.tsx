@@ -1,14 +1,29 @@
-/**
- * This file renders one commitment card inside the demo dashboard.
- * It exists to keep evidence, verification and action controls scoped to a single commitment.
- * It fits the system by making the dashboard clear to use during end-to-end testing.
- */
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  AlertTriangle,
+  ArrowRightLeft,
+  Bot,
+  ChevronDown,
+  FileText,
+  Gavel,
+  Loader2,
+  MessageSquareText,
+  UploadCloud,
+  Wallet,
+} from "lucide-react";
 import { formatEther } from "viem";
 
+import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateOnly } from "@/lib/commitment-utils";
+import { formatCommitmentStatus, formatShortAddress } from "@/lib/utils";
 import type { ApiCommitment, ApiEvidence, EvidenceSubmissionInput } from "@/types/frontend";
 
 type CommitmentCardProps = {
@@ -20,12 +35,6 @@ type CommitmentCardProps = {
   onVerify: (commitmentId: string) => Promise<void>;
 };
 
-/**
- * This function formats the latest evidence entry into a short UI label.
- * It receives the latest evidence payload returned by the backend.
- * It returns a compact description of whether the entry contains a file, written evidence or both.
- * It is important because the evidence area now supports more than file uploads.
- */
 function describeEvidenceEntry(evidence: ApiEvidence | null) {
   if (evidence === null) {
     return "None submitted yet";
@@ -49,12 +58,6 @@ function describeEvidenceEntry(evidence: ApiEvidence | null) {
   return "Evidence submitted";
 }
 
-/**
- * This function returns the timestamp after which appeal evidence should be considered new.
- * It receives the hydrated commitment aggregate shown in the card.
- * It returns the appeal cutoff timestamp in milliseconds or null when the appeal event is still unavailable.
- * It is important because appeal evidence must now be newer than the recorded appeal event itself.
- */
 function getAppealEvidenceCutoff(commitment: ApiCommitment) {
   const appealRecordedEvent =
     commitment.events.find((event) => event.type === "APPEAL_RECORDED") ?? null;
@@ -69,42 +72,60 @@ function getAppealEvidenceCutoff(commitment: ApiCommitment) {
 function getCommitmentSummaryStatus(commitment: ApiCommitment) {
   if (commitment.status === "COMPLETED") {
     return {
-      badgeClass: "completed",
       label: "Completed",
+      status: "COMPLETED" as const,
     };
   }
 
   if (commitment.status === "FAILED_FINAL") {
     return {
-      badgeClass: "failed",
       label: "Failed",
+      status: "FAILED_FINAL" as const,
     };
   }
 
   return {
-    badgeClass: "pending",
     label: "Pending",
+    status: "ACTIVE" as const,
   };
 }
 
-/**
- * This component renders the full demo controls and latest state for one commitment.
- * It receives the hydrated commitment aggregate and the action handlers owned by the parent screen.
- * It returns the card UI used in the dashboard list.
- * It is important because the demo flow is easiest to understand when every commitment exposes its own controls.
- */
+function DetailCard({
+  children,
+  icon: Icon,
+  title,
+}: {
+  children: ReactNode;
+  icon: typeof FileText;
+  title: string;
+}) {
+  return (
+    <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
+          <Icon className="size-4" />
+        </div>
+        <p className="font-semibold text-white">{title}</p>
+      </div>
+      <div className="space-y-3 text-sm leading-6 text-slate-300/74">{children}</div>
+    </div>
+  );
+}
+
 export function CommitmentCard({
   commitment,
   onAppeal,
   onFinalize,
   onResolveAppeal,
   onUploadEvidence,
-  onVerify
+  onVerify,
 }: CommitmentCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [textEvidence, setTextEvidence] = useState("");
-  const [cardMessage, setCardMessage] = useState<string | null>(null);
+  const [cardMessage, setCardMessage] = useState<{ tone: "error" | "success"; value: string } | null>(
+    null,
+  );
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
   const latestVerification = commitment.verifications[0] ?? null;
@@ -116,13 +137,9 @@ export function CommitmentCard({
     appealRecordedAt === null
       ? null
       : commitment.evidences.find(
-          (evidence) => new Date(evidence.createdAt).getTime() > appealRecordedAt
+          (evidence) => new Date(evidence.createdAt).getTime() > appealRecordedAt,
         ) ?? null;
 
-  /*
-   * This block derives appeal eligibility and evidence-stage behavior from verification history and status.
-   * It is important because appeal evidence now starts after the user consumes the on-chain appeal path.
-   */
   const appealAllowedByConfidence =
     latestInitialVerification !== null &&
     !latestInitialVerification.result &&
@@ -158,10 +175,10 @@ export function CommitmentCard({
   const appealHint =
     commitment.status === "FAILED_PENDING_APPEAL" && !commitment.appealed
       ? !appealAllowedByConfidence
-        ? "Appeal disabled because the failed verification was considered clear (confidence >= 0.6)."
-        : "Click appeal to unlock appeal evidence submission."
+        ? "Appeal is disabled because the failed verification was considered clear with confidence >= 0.6."
+        : "Consume the appeal action to unlock new evidence submission for review."
       : isAppealEvidenceStage && latestAppealEvidence === null
-        ? "Upload appeal evidence or provide more explicit proof. Submitting it will trigger the final appeal review."
+        ? "Upload appeal evidence or provide more explicit proof. The appeal will resolve immediately after submission."
         : null;
   const evidenceLockMessage = isFinalState
     ? "Evidence is locked because this commitment already reached a final state."
@@ -173,277 +190,426 @@ export function CommitmentCard({
   const summaryStatus = getCommitmentSummaryStatus(commitment);
   const expandableSectionId = `commitment-details-${commitment.id}`;
 
-  /**
-   * This function runs one card action and maps any thrown error into local UI feedback.
-   * It receives a stable action label plus the async action callback to execute.
-   * It returns a promise that resolves after local loading and feedback state is updated.
-   * It is important because each commitment card can trigger several independent backend and contract actions.
-   */
   async function runCardAction(label: string, action: () => Promise<void>) {
     setActiveAction(label);
     setCardMessage(null);
 
     try {
       await action();
-      setCardMessage(`${label} completed.`);
+      setCardMessage({
+        tone: "success",
+        value: `${label} completed.`,
+      });
     } catch (error) {
-      setCardMessage(error instanceof Error ? error.message : `${label} failed.`);
+      setCardMessage({
+        tone: "error",
+        value: error instanceof Error ? error.message : `${label} failed.`,
+      });
     } finally {
       setActiveAction(null);
     }
   }
 
   return (
-    <article className={`commitment-card${isExpanded ? " is-expanded" : ""}`}>
+    <motion.article
+      className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,40,0.84),rgba(9,12,24,0.78))] shadow-[0_24px_80px_-36px_rgba(2,6,23,0.94)]"
+      layout
+      transition={{ duration: 0.24, ease: "easeOut" }}
+    >
       <button
         aria-controls={expandableSectionId}
         aria-expanded={isExpanded}
-        className="commitment-toggle"
+        className="group flex w-full flex-col gap-5 px-5 py-5 text-left transition-colors hover:bg-white/[0.03] sm:px-6"
         onClick={() => setIsExpanded((currentState) => !currentState)}
         type="button"
       >
-        <div className="commitment-toggle-main">
-          <h3 className="commitment-toggle-title">{commitment.title}</h3>
-        </div>
-
-        <div className="commitment-toggle-meta">
-          <div className="commitment-summary-chip">
-            <strong>{formatEther(BigInt(commitment.amount))} AVAX</strong>
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">Commitment #{commitment.onchainId}</Badge>
+              <Badge variant="outline">{commitment.appealed ? "Appealed flow" : "Standard flow"}</Badge>
+              {commitment.isProcessing ? <Badge variant="default">Processing</Badge> : null}
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-display text-xl font-semibold tracking-tight text-white">
+                {commitment.title}
+              </h3>
+              <p className="max-w-3xl text-sm leading-6 text-slate-300/72">
+                Deadline {formatDateOnly(commitment.deadline)}. Evidence {commitment.evidences.length}.
+                Latest verification {latestVerification ? "available" : "pending"}.
+              </p>
+            </div>
           </div>
-          <span className={`status-badge status-${summaryStatus.badgeClass}`}>
-            {summaryStatus.label}
-          </span>
-          <span className={`chevron-icon${isExpanded ? " is-open" : ""}`} aria-hidden="true">
-            ⌄
-          </span>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="rounded-[22px] border border-white/10 bg-white/[0.05] px-4 py-3">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                Stake
+              </p>
+              <p className="mt-2 text-base font-semibold text-white">
+                {formatEther(BigInt(commitment.amount))} AVAX
+              </p>
+            </div>
+            <div className="rounded-[22px] border border-white/10 bg-white/[0.05] px-4 py-3">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                State
+              </p>
+              <div className="mt-2 flex items-center gap-3">
+                <StatusBadge label={summaryStatus.label} status={summaryStatus.status} />
+                <Badge variant="outline">{formatCommitmentStatus(commitment.status)}</Badge>
+              </div>
+            </div>
+            <div className="flex size-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-slate-300 transition-transform group-hover:border-white/16 group-hover:text-white">
+              <ChevronDown className={`size-5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+            </div>
+          </div>
         </div>
       </button>
 
-      <div className={`commitment-expandable${isExpanded ? " is-expanded" : ""}`} id={expandableSectionId}>
-        <div className="commitment-expandable-inner">
-          <div className="card-topline">
-            <span className="mini-pill">Escrow live</span>
-            <span className="mini-pill">{commitment.isProcessing ? "Processing" : commitment.status}</span>
-            <span className="mini-pill">{commitment.appealed ? "Appealed" : "Standard flow"}</span>
-          </div>
+      <AnimatePresence initial={false}>
+        {isExpanded ? (
+          <motion.div
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            id={expandableSectionId}
+            initial={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.24, ease: "easeOut" }}
+          >
+            <div className="border-t border-white/8 px-5 pb-5 pt-5 sm:px-6 sm:pb-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Deadline</p>
+                  <p className="mt-2 text-base font-semibold text-white">{formatDateOnly(commitment.deadline)}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300/72">
+                    Appeal window: {formatDateOnly(commitment.appealWindowEndsAt)}
+                  </p>
+                </div>
+                <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Evidence</p>
+                  <p className="mt-2 text-base font-semibold text-white">
+                    {commitment.evidences.length} entries
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300/72">
+                    Latest: {describeEvidenceEntry(latestEvidence)}
+                  </p>
+                </div>
+                <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Fail receiver</p>
+                  <p className="mt-2 break-all text-base font-semibold text-white">
+                    {formatShortAddress(commitment.failReceiver, 8, 5)}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300/72">
+                    Full address available in the detail panel below.
+                  </p>
+                </div>
+                <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Current status</p>
+                  <p className="mt-2 text-base font-semibold text-white">
+                    {commitment.isProcessing ? "Processing" : formatCommitmentStatus(commitment.status)}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300/72">
+                    Updated {formatDateOnly(commitment.updatedAt)}
+                  </p>
+                </div>
+              </div>
 
-          <div className="detail-box">
-            <strong>Description</strong>
-            <p>{commitment.description}</p>
-          </div>
+              <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]">
+                <div className="space-y-5">
+                  <DetailCard icon={FileText} title="Description">
+                    <p className="whitespace-pre-wrap">{commitment.description}</p>
+                  </DetailCard>
 
-          <div className="stats-grid">
-            <div className="stat-box">
-              <span>Deadline</span>
-              <strong>{formatDateOnly(commitment.deadline)}</strong>
-              <small>Appeal window ends: {formatDateOnly(commitment.appealWindowEndsAt)}</small>
-            </div>
+                  <DetailCard icon={Bot} title="Latest verification">
+                    {latestVerification !== null ? (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant={latestVerification.result ? "success" : "destructive"}>
+                            {latestVerification.result ? "Success" : "Fail"}
+                          </Badge>
+                          <Badge variant="outline">
+                            Confidence {latestVerification.confidence.toFixed(2)}
+                          </Badge>
+                          <Badge variant="secondary">{latestVerification.type}</Badge>
+                        </div>
+                        <p>{latestVerification.reasoning}</p>
+                      </>
+                    ) : (
+                      <p>No verification has been stored for this commitment yet.</p>
+                    )}
+                  </DetailCard>
 
-            <div className="stat-box">
-              <span>Evidence</span>
-              <strong>{commitment.evidences.length} entries</strong>
-              <small>Latest: {describeEvidenceEntry(latestEvidence)}</small>
-            </div>
-
-            <div className="stat-box">
-              <span>Fail receiver</span>
-              <strong>{commitment.failReceiver}</strong>
-              <small>Payout only happens after final on-chain settlement.</small>
-            </div>
-
-            <div className="stat-box">
-              <span>Current status</span>
-              <strong>{commitment.isProcessing ? "PROCESSING" : commitment.status}</strong>
-              <small>Updated: {formatDateOnly(commitment.updatedAt)}</small>
-            </div>
-          </div>
-
-          {latestVerification !== null ? (
-            <div className="detail-box">
-              <strong>Latest verification</strong>
-              <p>
-                Result: {latestVerification.result ? "success" : "fail"} | Confidence:{" "}
-                {latestVerification.confidence}
-              </p>
-              <p>{latestVerification.reasoning}</p>
-            </div>
-          ) : (
-            <div className="detail-box">
-              <strong>Latest verification</strong>
-              <p>No verification has been stored for this commitment yet.</p>
-            </div>
-          )}
-
-          <div className="detail-box">
-            <strong>{isAppealEvidenceStage ? "Appeal evidence" : "Submitted evidence"}</strong>
-            {latestEvidence === null ? (
-              <p>No submitted evidence has been stored for this commitment yet.</p>
-            ) : (
-              <>
-                <p>Latest entry: {describeEvidenceEntry(latestEvidence)}</p>
-                {latestEvidence.originalFileName !== null ? (
-                  <p>File: {latestEvidence.originalFileName}</p>
-                ) : null}
-                {latestEvidence.submittedText !== null &&
-                latestEvidence.submittedText.trim().length > 0 ? (
-                  <p>{latestEvidence.submittedText}</p>
-                ) : null}
-              </>
-            )}
-          </div>
-
-          {appealHint !== null ? (
-            <div className="detail-box">
-              <strong>{isAppealEvidenceStage ? "Appeal evidence" : "Appeal policy"}</strong>
-              <p>{appealHint}</p>
-            </div>
-          ) : null}
-
-          {canSubmitEvidence ? (
-            <div className="detail-box">
-              <strong>{isAppealEvidenceStage ? "Appeal evidence" : "Evidence submission"}</strong>
-              <p>
-                {isAppealEvidenceStage
-                  ? "Upload appeal evidence or provide more explicit proof. The backend will resolve the appeal right after submission."
-                  : "Submit a file, written evidence, or both before verification."}
-              </p>
-
-              <div className="evidence-form">
-                <label className="field evidence-field">
-                  <span>{isAppealEvidenceStage ? "Appeal file" : "Upload file"}</span>
-                  <input
-                    accept=".pdf,.txt,text/plain,application/pdf"
-                    disabled={activeAction !== null}
-                    key={fileInputKey}
-                    onChange={(event) => {
-                      const nextFile = event.target.files?.[0] ?? null;
-                      setSelectedFile(nextFile);
-                    }}
-                    type="file"
-                  />
-                </label>
-
-                <label className="field field-wide">
-                  <span>
-                    {isAppealEvidenceStage ? "Write your appeal evidence" : "Write your evidence"}
-                  </span>
-                  <textarea
-                    disabled={activeAction !== null}
-                    onChange={(event) => setTextEvidence(event.target.value)}
-                    placeholder={
-                      isAppealEvidenceStage
-                        ? "Explain why the previous failure should be reconsidered."
-                        : "Describe the proof you want the verifier to consider."
-                    }
-                    rows={4}
-                    value={textEvidence}
-                  />
-                </label>
-
-                <div className="form-actions">
-                  <button
-                    className="button button-secondary"
-                    disabled={
-                      activeAction !== null ||
-                      (selectedFile === null && textEvidence.trim().length === 0)
-                    }
-                    onClick={() =>
-                      void runCardAction(
-                        isAppealEvidenceStage ? "Appeal evidence upload" : "Evidence upload",
-                        async () => {
-                          const trimmedTextEvidence = textEvidence.trim();
-
-                          if (selectedFile === null && trimmedTextEvidence.length === 0) {
-                            throw new Error("Provide a file, written evidence, or both.");
-                          }
-
-                          await onUploadEvidence(commitment.id, {
-                            file: selectedFile,
-                            textEvidence: trimmedTextEvidence,
-                          });
-
-                          if (isAppealEvidenceStage) {
-                            await onResolveAppeal(commitment.id);
-                          }
-
-                          setSelectedFile(null);
-                          setTextEvidence("");
-                          setFileInputKey((currentKey) => currentKey + 1);
-                        },
-                      )
-                    }
-                    type="button"
+                  <DetailCard
+                    icon={isAppealEvidenceStage ? MessageSquareText : UploadCloud}
+                    title={isAppealEvidenceStage ? "Appeal evidence" : "Submitted evidence"}
                   >
-                    {activeAction === "Evidence upload" || activeAction === "Appeal evidence upload"
-                      ? "Uploading..."
-                      : isAppealEvidenceStage
-                        ? "Submit appeal evidence"
-                        : "Submit evidence"}
-                  </button>
+                    {latestEvidence === null ? (
+                      <p>No submitted evidence has been stored for this commitment yet.</p>
+                    ) : (
+                      <>
+                        <p>Latest entry: {describeEvidenceEntry(latestEvidence)}</p>
+                        {latestEvidence.originalFileName !== null ? (
+                          <p>File: {latestEvidence.originalFileName}</p>
+                        ) : null}
+                        {latestEvidence.submittedText !== null &&
+                        latestEvidence.submittedText.trim().length > 0 ? (
+                          <p className="whitespace-pre-wrap">{latestEvidence.submittedText}</p>
+                        ) : null}
+                      </>
+                    )}
+                  </DetailCard>
+
+                  {appealHint !== null ? (
+                    <div className="rounded-[26px] border border-amber-300/16 bg-amber-400/[0.08] p-5">
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex size-10 items-center justify-center rounded-2xl bg-amber-400/12 text-amber-100">
+                          <AlertTriangle className="size-4" />
+                        </div>
+                        <p className="font-semibold text-amber-50">
+                          {isAppealEvidenceStage ? "Appeal evidence" : "Appeal policy"}
+                        </p>
+                      </div>
+                      <p className="text-sm leading-6 text-amber-50/84">{appealHint}</p>
+                    </div>
+                  ) : null}
+
+                  {canSubmitEvidence ? (
+                    <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
+                      <div className="mb-5 flex items-start gap-3">
+                        <div className="flex size-10 items-center justify-center rounded-2xl bg-cyan-300/12 text-cyan-100">
+                          <UploadCloud className="size-4" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-white">
+                            {isAppealEvidenceStage ? "Submit appeal evidence" : "Submit evidence"}
+                          </p>
+                          <p className="mt-1 text-sm leading-6 text-slate-300/72">
+                            {isAppealEvidenceStage
+                              ? "Upload fresh evidence or written proof. Submission triggers the appeal review immediately."
+                              : "Upload a file, add written proof, or combine both before verification."}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4">
+                        <label className="grid gap-2">
+                          <span className="text-sm font-medium text-slate-200">
+                            {isAppealEvidenceStage ? "Appeal file" : "Evidence file"}
+                          </span>
+                          <Input
+                            accept=".pdf,.txt,text/plain,application/pdf"
+                            disabled={activeAction !== null}
+                            key={fileInputKey}
+                            onChange={(event) => {
+                              const nextFile = event.target.files?.[0] ?? null;
+                              setSelectedFile(nextFile);
+                            }}
+                            type="file"
+                          />
+                        </label>
+
+                        <label className="grid gap-2">
+                          <span className="text-sm font-medium text-slate-200">
+                            {isAppealEvidenceStage ? "Appeal explanation" : "Written evidence"}
+                          </span>
+                          <Textarea
+                            disabled={activeAction !== null}
+                            onChange={(event) => setTextEvidence(event.target.value)}
+                            placeholder={
+                              isAppealEvidenceStage
+                                ? "Explain why the previous failure should be reconsidered."
+                                : "Describe the proof you want the verifier to consider."
+                            }
+                            rows={4}
+                            value={textEvidence}
+                          />
+                        </label>
+
+                        <div className="flex flex-wrap gap-3">
+                          <Button
+                            disabled={
+                              activeAction !== null ||
+                              (selectedFile === null && textEvidence.trim().length === 0)
+                            }
+                            onClick={() =>
+                              void runCardAction(
+                                isAppealEvidenceStage ? "Appeal evidence upload" : "Evidence upload",
+                                async () => {
+                                  const trimmedTextEvidence = textEvidence.trim();
+
+                                  if (selectedFile === null && trimmedTextEvidence.length === 0) {
+                                    throw new Error("Provide a file, written evidence, or both.");
+                                  }
+
+                                  await onUploadEvidence(commitment.id, {
+                                    file: selectedFile,
+                                    textEvidence: trimmedTextEvidence,
+                                  });
+
+                                  if (isAppealEvidenceStage) {
+                                    await onResolveAppeal(commitment.id);
+                                  }
+
+                                  setSelectedFile(null);
+                                  setTextEvidence("");
+                                  setFileInputKey((currentKey) => currentKey + 1);
+                                },
+                              )
+                            }
+                            type="button"
+                          >
+                            {activeAction === "Evidence upload" || activeAction === "Appeal evidence upload" ? (
+                              <Loader2 className="animate-spin" />
+                            ) : (
+                              <UploadCloud />
+                            )}
+                            {activeAction === "Evidence upload" || activeAction === "Appeal evidence upload"
+                              ? "Uploading..."
+                              : isAppealEvidenceStage
+                                ? "Submit appeal evidence"
+                                : "Submit evidence"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : evidenceLockMessage !== null ? (
+                    <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
+                          <UploadCloud className="size-4" />
+                        </div>
+                        <p className="font-semibold text-white">
+                          {isAppealEvidenceStage ? "Appeal evidence" : "Evidence"}
+                        </p>
+                      </div>
+                      <p className="text-sm leading-6 text-slate-300/72">{evidenceLockMessage}</p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-5">
+                  <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
+                    <div className="mb-5 flex items-start gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-2xl bg-indigo-400/12 text-indigo-100">
+                        <Gavel className="size-4" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-white">Action center</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-300/72">
+                          Every button below keeps the same backend and contract behavior currently wired
+                          into the app.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3">
+                      <Button
+                        className="w-full justify-start"
+                        disabled={!canVerify || activeAction !== null}
+                        onClick={() => void runCardAction("Verification", () => onVerify(commitment.id))}
+                        size="lg"
+                        type="button"
+                      >
+                        {activeAction === "Verification" ? <Loader2 className="animate-spin" /> : <Bot />}
+                        {activeAction === "Verification" ? "Queueing..." : "Verify commitment"}
+                      </Button>
+
+                      <Button
+                        className="w-full justify-start"
+                        disabled={!canAppeal || activeAction !== null}
+                        onClick={() => void runCardAction("Appeal", () => onAppeal(commitment))}
+                        size="lg"
+                        type="button"
+                        variant="warning"
+                      >
+                        {activeAction === "Appeal" ? <Loader2 className="animate-spin" /> : <ArrowRightLeft />}
+                        {activeAction === "Appeal" ? "Appealing..." : "Open appeal"}
+                      </Button>
+
+                      <Button
+                        className="w-full justify-start"
+                        disabled={!canResolveAppeal || activeAction !== null}
+                        onClick={() =>
+                          void runCardAction("Appeal resolution", () => onResolveAppeal(commitment.id))
+                        }
+                        size="lg"
+                        type="button"
+                        variant="secondary"
+                      >
+                        {activeAction === "Appeal resolution" ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <MessageSquareText />
+                        )}
+                        {activeAction === "Appeal resolution" ? "Queueing..." : "Resolve appeal"}
+                      </Button>
+
+                      <Button
+                        className="w-full justify-start"
+                        disabled={!canFinalize || activeAction !== null}
+                        onClick={() =>
+                          void runCardAction("Failed finalization", () => onFinalize(commitment.id))
+                        }
+                        size="lg"
+                        type="button"
+                        variant="destructive"
+                      >
+                        {activeAction === "Failed finalization" ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <AlertTriangle />
+                        )}
+                        {activeAction === "Failed finalization" ? "Finalizing..." : "Finalize failed"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
+                        <Wallet className="size-4" />
+                      </div>
+                      <p className="font-semibold text-white">Commitment metadata</p>
+                    </div>
+
+                    <div className="space-y-4 text-sm">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">On-chain id</p>
+                        <p className="mt-2 font-semibold text-white">{commitment.onchainId}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Owner</p>
+                        <p className="mt-2 break-all font-semibold text-white">
+                          {formatShortAddress(commitment.userWalletAddress, 8, 5)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Fail receiver</p>
+                        <p className="mt-2 break-all font-semibold text-white">{commitment.failReceiver}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Last update</p>
+                        <p className="mt-2 font-semibold text-white">{formatDateOnly(commitment.updatedAt)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {cardMessage !== null ? (
+                    <div
+                      className={`rounded-[24px] p-4 text-sm ${
+                        cardMessage.tone === "success"
+                          ? "border border-emerald-300/18 bg-emerald-400/[0.08] text-emerald-100"
+                          : "border border-rose-300/18 bg-rose-400/[0.08] text-rose-100"
+                      }`}
+                    >
+                      {cardMessage.value}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
-          ) : evidenceLockMessage !== null ? (
-            <div className="detail-box">
-              <strong>{isAppealEvidenceStage ? "Appeal evidence" : "Evidence"}</strong>
-              <p>{evidenceLockMessage}</p>
-            </div>
-          ) : null}
-
-          <div className="action-panel">
-            <div className="section-row">
-              <div>
-                <p className="section-label">Actions</p>
-                <h4 className="subsection-title">Drive the workflow</h4>
-              </div>
-            </div>
-
-            <div className="button-row">
-              <button
-                className="button button-primary"
-                disabled={!canVerify || activeAction !== null}
-                onClick={() => void runCardAction("Verification", () => onVerify(commitment.id))}
-                type="button"
-              >
-                {activeAction === "Verification" ? "Queueing..." : "Verify"}
-              </button>
-
-              <button
-                className="button button-warning"
-                disabled={!canAppeal || activeAction !== null}
-                onClick={() => void runCardAction("Appeal", () => onAppeal(commitment))}
-                type="button"
-              >
-                {activeAction === "Appeal" ? "Appealing..." : "Appeal"}
-              </button>
-
-              <button
-                className="button button-secondary"
-                disabled={!canResolveAppeal || activeAction !== null}
-                onClick={() =>
-                  void runCardAction("Appeal resolution", () => onResolveAppeal(commitment.id))
-                }
-                type="button"
-              >
-                {activeAction === "Appeal resolution" ? "Queueing..." : "Resolve appeal"}
-              </button>
-
-              <button
-                className="button button-secondary"
-                disabled={!canFinalize || activeAction !== null}
-                onClick={() =>
-                  void runCardAction("Failed finalization", () => onFinalize(commitment.id))
-                }
-                type="button"
-              >
-                {activeAction === "Failed finalization" ? "Finalizing..." : "Finalize failed"}
-              </button>
-            </div>
-          </div>
-
-          {cardMessage !== null ? <p className="feedback">{cardMessage}</p> : null}
-        </div>
-      </div>
-    </article>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </motion.article>
   );
 }

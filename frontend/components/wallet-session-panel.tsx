@@ -1,8 +1,21 @@
-/**
- * This file renders the wallet connection and authentication controls for the demo frontend.
- * It exists to keep wallet UX separated from the commitment dashboard itself.
- * It fits the system by making connection, chain state and auth state visible at a glance.
- */
+"use client";
+
+import {
+  ArrowRightLeft,
+  Loader2,
+  PlugZap,
+  ShieldCheck,
+  Unplug,
+  Wallet,
+} from "lucide-react";
+
+import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { formatShortAddress } from "@/lib/utils";
+
 type WalletSessionPanelProps = {
   address: string | undefined;
   connectorName: string | null;
@@ -18,12 +31,6 @@ type WalletSessionPanelProps = {
   sessionError: string | null;
 };
 
-/**
- * This component renders the demo wallet and auth status panel.
- * It receives connection state and the actions required to connect, authenticate, switch chain and disconnect.
- * It returns the top control panel shown above the commitment flow.
- * It is important because users need a clear view of wallet, chain and backend-session state before testing flows.
- */
 export function WalletSessionPanel({
   address,
   connectorName,
@@ -36,93 +43,166 @@ export function WalletSessionPanel({
   onConnect,
   onDisconnect,
   onSwitchChain,
-  sessionError
+  sessionError,
 }: WalletSessionPanelProps) {
   return (
-    <section className="panel wallet-panel" id="wallet-panel">
-      <div className="panel-header">
-        <div>
-          <p className="section-label">Wallet</p>
-          <h2 className="section-title">Connection and session control</h2>
-          <p className="muted-copy">
-            Connect, authenticate, and confirm that your wallet is ready to interact with the live
-            demo flow.
-          </p>
-        </div>
-      </div>
-
-      <div className="panel-grid">
-        <div className="stat-box stat-box-highlight">
-          <span>Connection</span>
-          <strong>{isConnected ? "Connected" : "Not connected"}</strong>
-          <small>{connectorName ?? "No connector selected"}</small>
+    <Card className="glass-noise overflow-hidden rounded-[32px]">
+      <CardHeader className="flex flex-col gap-5 border-b border-white/8 pb-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-3">
+          <Badge variant="secondary">Wallet control</Badge>
+          <div className="space-y-2">
+            <CardTitle className="text-2xl sm:text-3xl">Connect, sign, and get ready to operate</CardTitle>
+            <CardDescription className="max-w-2xl text-sm sm:text-base">
+              Keep the full wallet state on Home, then move into create and dashboard flows once the
+              session is live.
+            </CardDescription>
+          </div>
         </div>
 
-        <div className="stat-box">
-          <span>Wallet</span>
-          <strong>{address ?? "Connect a wallet to start"}</strong>
-          <small>{isOnSupportedChain ? "Avalanche Fuji ready" : "Switch to Avalanche Fuji"}</small>
-        </div>
-
-        <div className="stat-box">
-          <span>Backend session</span>
-          <strong>{isAuthenticated ? "Authenticated" : "Pending authentication"}</strong>
-          <small>JWT session used for protected backend endpoints</small>
-        </div>
-      </div>
-
-      <div className="button-row wallet-actions">
-        {!isConnected ? (
-          <button
-            className="button button-primary"
-            disabled={isConnecting}
-            onClick={() => void onConnect()}
-            type="button"
-          >
-            {isConnecting ? "Connecting..." : "Connect wallet"}
-          </button>
+        {isAuthenticated ? (
+          <StatusBadge label="Session live" status="AUTHENTICATED" />
+        ) : isConnected ? (
+          <Badge variant="warning">Authentication pending</Badge>
         ) : (
-          <>
-            {!isOnSupportedChain ? (
-              <button
-                className="button button-warning"
-                onClick={() => void onSwitchChain()}
-                type="button"
-              >
-                Switch to Fuji
-              </button>
-            ) : null}
-
-            {!isAuthenticated ? (
-              <button
-                className="button button-primary"
-                disabled={isAuthenticating}
-                onClick={() => void onAuthenticate()}
-                type="button"
-              >
-                {isAuthenticating ? "Signing..." : "Authenticate with wallet"}
-              </button>
-            ) : null}
-
-            <button className="button button-secondary" onClick={onDisconnect} type="button">
-              Disconnect
-            </button>
-          </>
+          <Badge variant="secondary">Wallet disconnected</Badge>
         )}
-      </div>
+      </CardHeader>
 
-      <div className="wallet-meta-row">
-        <div className="wallet-meta-card">
-          <span>Network</span>
-          <strong>{isOnSupportedChain ? "Avalanche Fuji" : "Unsupported chain"}</strong>
-        </div>
-        <div className="wallet-meta-card">
-          <span>Wallet address</span>
-          <strong>{address ?? "Waiting for connection"}</strong>
-        </div>
-      </div>
+      <CardContent className="space-y-6 pt-6">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-[24px] border border-cyan-300/14 bg-cyan-300/[0.08] p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex size-11 items-center justify-center rounded-2xl bg-cyan-300/12 text-cyan-100">
+                <PlugZap className="size-5" />
+              </div>
+              <Badge variant={isConnected ? "success" : "warning"}>
+                {isConnected ? "Connected" : "Pending"}
+              </Badge>
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Connection</p>
+            <p className="mt-2 text-lg font-semibold text-white">
+              {connectorName ?? "No connector selected"}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-300/72">
+              {isConnected ? "Wallet provider is attached to TimeLend." : "Connect a wallet to start."}
+            </p>
+          </div>
 
-      {sessionError !== null ? <p className="feedback feedback-error">{sessionError}</p> : null}
-    </section>
+          <div className="rounded-[24px] border border-emerald-300/14 bg-emerald-400/[0.08] p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-400/12 text-emerald-100">
+                <ShieldCheck className="size-5" />
+              </div>
+              <Badge variant={isAuthenticated ? "success" : "warning"}>
+                {isAuthenticated ? "Authenticated" : "Signature needed"}
+              </Badge>
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Backend session</p>
+            <p className="mt-2 text-lg font-semibold text-white">
+              {isAuthenticated ? "Protected routes unlocked" : "Waiting for wallet signature"}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-300/72">
+              JWT session powers create, verify, appeal, and settlement requests.
+            </p>
+          </div>
+
+          <div className="rounded-[24px] border border-amber-300/14 bg-amber-400/[0.08] p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex size-11 items-center justify-center rounded-2xl bg-amber-400/12 text-amber-100">
+                <ArrowRightLeft className="size-5" />
+              </div>
+              {isOnSupportedChain ? (
+                <StatusBadge label="Fuji ready" status="CONNECTED" />
+              ) : (
+                <StatusBadge label="Wrong network" status="UNSUPPORTED" />
+              )}
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Network</p>
+            <p className="mt-2 text-lg font-semibold text-white">
+              {isOnSupportedChain ? "Avalanche Fuji" : "Switch required"}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-300/72">
+              Contract creation and appeal settlement stay on Avalanche Fuji.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          {!isConnected ? (
+            <Button disabled={isConnecting} onClick={() => void onConnect()} size="lg" type="button">
+              {isConnecting ? <Loader2 className="animate-spin" /> : <Wallet />}
+              {isConnecting ? "Connecting..." : "Connect wallet"}
+            </Button>
+          ) : (
+            <>
+              {!isOnSupportedChain ? (
+                <Button onClick={() => void onSwitchChain()} size="lg" type="button" variant="warning">
+                  <ArrowRightLeft />
+                  Switch to Fuji
+                </Button>
+              ) : null}
+
+              {!isAuthenticated ? (
+                <Button
+                  disabled={isAuthenticating}
+                  onClick={() => void onAuthenticate()}
+                  size="lg"
+                  type="button"
+                >
+                  {isAuthenticating ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
+                  {isAuthenticating ? "Signing..." : "Authenticate"}
+                </Button>
+              ) : null}
+
+              <Button onClick={onDisconnect} size="lg" type="button" variant="secondary">
+                <Unplug />
+                Disconnect
+              </Button>
+            </>
+          )}
+        </div>
+
+        <Separator className="soft-divider" />
+
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
+                <Wallet className="size-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Wallet address</p>
+                <p className="mt-1 text-base font-semibold text-white">
+                  {address ?? "Waiting for connection"}
+                </p>
+              </div>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-slate-300/72">
+              Quick view: {formatShortAddress(address)}. The full address stays available here while
+              the rest of the app keeps things compact.
+            </p>
+          </div>
+
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">State checklist</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge variant={isConnected ? "success" : "warning"}>1. Connect</Badge>
+              <Badge variant={isOnSupportedChain ? "success" : "warning"}>2. Fuji</Badge>
+              <Badge variant={isAuthenticated ? "success" : "warning"}>3. Sign</Badge>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-slate-300/72">
+              Once all three are green, the create and dashboard actions use the same protected logic
+              already wired into TimeLend.
+            </p>
+          </div>
+        </div>
+
+        {sessionError !== null ? (
+          <div className="rounded-[24px] border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
+            {sessionError}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

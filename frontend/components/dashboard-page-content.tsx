@@ -2,12 +2,29 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { motion } from "framer-motion";
+import {
+  Activity,
+  History,
+  Layers3,
+  Loader2,
+  PlusCircle,
+  RefreshCw,
+  Wallet,
+} from "lucide-react";
 import { formatEther } from "viem";
 
 import { CommitmentCard } from "@/components/commitment-card";
+import { EmptyState } from "@/components/empty-state";
+import { MetricCard } from "@/components/metric-card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCommitmentsDashboard } from "@/hooks/use-commitments-dashboard";
 import { useTimeLendWalletActions } from "@/hooks/use-timelend-wallet-actions";
 import { useWalletSession } from "@/hooks/use-wallet-session";
+import { formatShortAddress } from "@/lib/utils";
 import {
   finalizeFailedDemo,
   recordAppeal,
@@ -17,27 +34,13 @@ import {
 } from "@/services/timelend-api";
 import type { ApiCommitment, EvidenceSubmissionInput } from "@/types/frontend";
 
-function formatShortAddress(address: string | undefined) {
-  if (address === undefined) {
-    return "Not connected";
-  }
+const reveal = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
 
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-/**
- * This component renders the dedicated dashboard route using the existing commitment operations.
- * It receives no props because all dashboard and wallet state comes from the same hooks already used by the app.
- * It returns the dashboard page with wallet controls, summaries, and commitment actions.
- * It is important because the dashboard now has its own focused route without changing any underlying behavior.
- */
 export function DashboardPageContent() {
-  const {
-    address,
-    isAuthenticated,
-    isOnSupportedChain,
-    session,
-  } = useWalletSession();
+  const { address, isAuthenticated, isOnSupportedChain, session } = useWalletSession();
   const { appealCommitmentWithWallet } = useTimeLendWalletActions();
   const { commitments, dashboardError, initialLoadComplete, isRefreshing, refreshCommitments } =
     useCommitmentsDashboard(session, isAuthenticated ? address : undefined);
@@ -54,12 +57,6 @@ export function DashboardPageContent() {
   );
   const processingCount = commitments.filter((commitment) => commitment.isProcessing).length;
 
-  /**
-   * This function uploads one evidence file for the selected commitment and refreshes the dashboard.
-   * It receives the off-chain commitment id and the selected evidence input.
-   * It returns a promise that resolves after the backend stores and parses the evidence.
-   * It is important because evidence ingestion remains the same protected backend flow.
-   */
   async function handleUploadEvidence(commitmentId: string, input: EvidenceSubmissionInput) {
     if (session === null) {
       throw new Error("Authenticate before uploading evidence.");
@@ -69,12 +66,6 @@ export function DashboardPageContent() {
     await refreshCommitments();
   }
 
-  /**
-   * This function queues backend verification for the selected commitment and refreshes the dashboard.
-   * It receives the off-chain commitment id.
-   * It returns a promise that resolves after the verification request is accepted.
-   * It is important because the dashboard must preserve the original verification path.
-   */
   async function handleVerify(commitmentId: string) {
     if (session === null) {
       throw new Error("Authenticate before verifying commitments.");
@@ -85,12 +76,6 @@ export function DashboardPageContent() {
     await refreshCommitments();
   }
 
-  /**
-   * This function consumes the on-chain appeal with the wallet and then records it in the backend.
-   * It receives the selected commitment aggregate.
-   * It returns a promise that resolves after both the chain and backend steps finish.
-   * It is important because the appeal route must stay identical to the existing dashboard behavior.
-   */
   async function handleAppeal(commitment: ApiCommitment) {
     if (session === null || address === undefined) {
       throw new Error("Authenticate a wallet before appealing.");
@@ -106,12 +91,6 @@ export function DashboardPageContent() {
     await refreshCommitments();
   }
 
-  /**
-   * This function triggers the internal appeal-resolution path and refreshes the dashboard.
-   * It receives the off-chain commitment id.
-   * It returns a promise that resolves after the appeal outcome is available.
-   * It is important because the page restructure must keep the same internal demo proxy behavior.
-   */
   async function handleResolveAppeal(commitmentId: string) {
     const commitment = await resolveAppealDemo(commitmentId);
     setPageMessage(
@@ -120,12 +99,6 @@ export function DashboardPageContent() {
     await refreshCommitments();
   }
 
-  /**
-   * This function triggers failed finalization for eligible commitments and refreshes the dashboard.
-   * It receives the off-chain commitment id.
-   * It returns a promise that resolves after the backend completes the request.
-   * It is important because the dashboard must still expose the full failure-settlement path.
-   */
   async function handleFinalize(commitmentId: string) {
     await finalizeFailedDemo(commitmentId);
     setPageMessage("Failed commitment finalization requested.");
@@ -133,158 +106,228 @@ export function DashboardPageContent() {
   }
 
   return (
-    <main className="demo-shell page-shell">
-      <div className="demo-orb demo-orb-secondary" aria-hidden="true" />
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-8 pt-6">
+      <motion.section
+        animate="visible"
+        className="glass-noise overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,42,0.92),rgba(8,12,24,0.82))] px-6 py-7 shadow-[0_30px_100px_-36px_rgba(2,6,23,0.96)] backdrop-blur-2xl sm:px-8 sm:py-8"
+        initial="hidden"
+        variants={reveal}
+      >
+        <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-5">
+            <Badge variant="secondary">Dashboard</Badge>
+            <div className="space-y-4">
+              <h1 className="max-w-4xl font-display text-4xl font-semibold tracking-[-0.06em] text-white text-balance sm:text-5xl">
+                Operate the commitment pipeline from one financial-style control center.
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-slate-300/78 sm:text-lg">
+                Review live positions, upload evidence, trigger verification, and handle appeals or
+                finalization without changing the underlying workflow logic.
+              </p>
+            </div>
 
-      <section className="panel page-header">
-        <p className="section-label">Dashboard</p>
-        <h1 className="page-title">Operate the full commitment pipeline.</h1>
-        <p className="page-subtitle">
-          This page keeps the existing dashboard logic intact and gives the review workflow its own
-          focused space for evidence, verification, appeal, and settlement.
-        </p>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild size="lg" variant="secondary">
+                <Link href="/">
+                  <Wallet />
+                  Back home
+                </Link>
+              </Button>
+              <Button asChild size="lg">
+                <Link href="/create">
+                  <PlusCircle />
+                  New commitment
+                </Link>
+              </Button>
+            </div>
+          </div>
 
-        <div className="header-card-row">
-          <div className="metric-card metric-card-primary">
-            <span>Wallet address</span>
-            <strong>{formatShortAddress(address)}</strong>
-            <small>Authenticate from Home before operating dashboard actions.</small>
-          </div>
-          <div className="metric-card">
-            <span>Active commitments</span>
-            <strong>{activeCommitments.length}</strong>
-            <small>Live, processing, and appeal-stage items.</small>
-          </div>
-          <div className="metric-card">
-            <span>Settled commitments</span>
-            <strong>{settledCommitments.length}</strong>
-            <small>Completed or failed-final records already resolved.</small>
-          </div>
-          <div className="metric-card">
-            <span>Total staked</span>
-            <strong>{formatEther(totalStakedWei)} AVAX</strong>
-            <small>{processingCount} commitments currently moving through automation.</small>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MetricCard
+              helper="Compact wallet visibility while staying focused on positions and actions."
+              icon={Wallet}
+              label="Wallet"
+              tone="accent"
+              value={formatShortAddress(address, 8, 5)}
+            />
+            <MetricCard
+              helper="Items still moving through verification, appeal, or settlement."
+              icon={Layers3}
+              label="Open positions"
+              tone="warning"
+              value={String(activeCommitments.length)}
+            />
+            <MetricCard
+              helper="Completed or failed-final commitments already resolved."
+              icon={History}
+              label="History"
+              tone="success"
+              value={String(settledCommitments.length)}
+            />
+            <MetricCard
+              helper={`${processingCount} commitments currently moving through automation.`}
+              icon={Activity}
+              label="Staked"
+              tone="neutral"
+              value={`${formatEther(totalStakedWei)} AVAX`}
+            />
           </div>
         </div>
+      </motion.section>
 
-        <div className="header-actions">
-          <Link className="button button-secondary button-compact" href="/">
-            Back home
-          </Link>
-          <Link className="button button-primary button-compact" href="/create">
-            New commitment
-          </Link>
+      {pageMessage !== null ? (
+        <div className="rounded-[24px] border border-emerald-300/18 bg-emerald-400/[0.08] p-4 text-sm text-emerald-100">
+          {pageMessage}
         </div>
-      </section>
-
-      <div className="notice-stack" aria-live="polite">
-        {pageMessage !== null ? <p className="feedback feedback-success">{pageMessage}</p> : null}
-        {dashboardError !== null ? (
-          <p className="feedback feedback-error">{dashboardError}</p>
-        ) : null}
-      </div>
-
-      <section className="panel dashboard-panel">
-        <div className="panel-header">
-          <div>
-            <p className="section-label">Overview</p>
-            <h2 className="section-title">Your commitments</h2>
-            <p className="muted-copy">
-              Review current positions, submit evidence, and move each commitment through its
-              allowed actions.
-            </p>
-          </div>
-
-          <button
-            className="button button-secondary"
-            disabled={!isAuthenticated || isRefreshing}
-            onClick={() => void refreshCommitments()}
-            type="button"
-          >
-            {isRefreshing ? "Refreshing..." : "Refresh"}
-          </button>
+      ) : null}
+      {dashboardError !== null ? (
+        <div className="rounded-[24px] border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
+          {dashboardError}
         </div>
+      ) : null}
 
-        {!initialLoadComplete ? (
-          <p className="empty-state">Loading dashboard...</p>
-        ) : !isAuthenticated ? (
-          <div className="empty-state-card">
-            <p className="empty-state-title">Authenticate on Home to load commitments</p>
-            <p className="empty-state">
-              The dashboard logic is unchanged. Connect your wallet and sign the session challenge
-              on Home, then return here to unlock commitment data and actions.
-            </p>
-          </div>
-        ) : commitments.length === 0 ? (
-          <div className="empty-state-card">
-            <p className="empty-state-title">No commitments found</p>
-            <p className="empty-state">
-              This route is ready. Create a new commitment first, then come back here to upload
-              evidence and run the verification flow.
-            </p>
-          </div>
-        ) : (
-          <div className="dashboard-sections">
-            <section className="commitment-section">
-              <div className="section-row">
-                <div>
-                  <p className="section-label">Open pipeline</p>
-                  <h3 className="subsection-title">Active, processing, and appeal-stage</h3>
+      <motion.section
+        animate="visible"
+        initial="hidden"
+        transition={{ delay: 0.06 }}
+        variants={reveal}
+      >
+        <Card className="overflow-hidden rounded-[32px]">
+          <CardHeader className="flex flex-col gap-5 border-b border-white/8 pb-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-3">
+              <Badge variant="outline">Portfolio overview</Badge>
+              <CardTitle className="text-2xl sm:text-3xl">Your commitments</CardTitle>
+              <CardDescription className="max-w-3xl text-sm sm:text-base">
+                Review active positions, keep an eye on processing commitments, and work through the
+                allowed actions for each item below.
+              </CardDescription>
+            </div>
+
+            <Button
+              disabled={!isAuthenticated || isRefreshing}
+              onClick={() => void refreshCommitments()}
+              size="lg"
+              type="button"
+              variant="secondary"
+            >
+              {isRefreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              {isRefreshing ? "Refreshing..." : "Refresh data"}
+            </Button>
+          </CardHeader>
+
+          <CardContent className="space-y-6 pt-6">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">Wallet {isAuthenticated ? "authenticated" : "pending"}</Badge>
+              <Badge variant={isOnSupportedChain ? "success" : "destructive"}>
+                {isOnSupportedChain ? "Fuji ready" : "Wrong network"}
+              </Badge>
+              <Badge variant="warning">{processingCount} processing</Badge>
+              <Badge variant="outline">{commitments.length} total commitments</Badge>
+            </div>
+
+            {!initialLoadComplete ? (
+              <div className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Skeleton className="h-40 rounded-[28px]" />
+                  <Skeleton className="h-40 rounded-[28px]" />
                 </div>
-                <span className="count-pill">{activeCommitments.length}</span>
+                <Skeleton className="h-44 rounded-[28px]" />
+                <Skeleton className="h-44 rounded-[28px]" />
               </div>
+            ) : !isAuthenticated ? (
+              <EmptyState
+                action={
+                  <Button asChild size="lg">
+                    <Link href="/">Authenticate on Home</Link>
+                  </Button>
+                }
+                description="Connect your wallet and sign the session challenge on Home to unlock commitment data and actions here."
+                icon={Wallet}
+                title="Authenticate on Home to load commitments"
+              />
+            ) : commitments.length === 0 ? (
+              <EmptyState
+                action={
+                  <Button asChild size="lg">
+                    <Link href="/create">Create your first commitment</Link>
+                  </Button>
+                }
+                description="This dashboard is ready for evidence, verification, appeal, and settlement. Create a commitment first, then return here to operate it."
+                icon={PlusCircle}
+                title="No commitments yet"
+              />
+            ) : (
+              <div className="grid gap-6">
+                <Card className="overflow-hidden rounded-[30px] border-white/10 bg-white/[0.03]">
+                  <CardHeader className="space-y-3 border-b border-white/8 pb-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-2">
+                        <Badge variant="warning">Open pipeline</Badge>
+                        <CardTitle className="text-xl">Active, processing, and appeal-stage</CardTitle>
+                      </div>
+                      <Badge variant="secondary">{activeCommitments.length}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-6">
+                    {activeCommitments.length === 0 ? (
+                      <EmptyState
+                        description="Everything is settled right now. New active commitments will show up here."
+                        icon={Layers3}
+                        title="No active commitments"
+                      />
+                    ) : (
+                      activeCommitments.map((commitment) => (
+                        <CommitmentCard
+                          commitment={commitment}
+                          key={commitment.id}
+                          onAppeal={handleAppeal}
+                          onFinalize={handleFinalize}
+                          onResolveAppeal={handleResolveAppeal}
+                          onUploadEvidence={handleUploadEvidence}
+                          onVerify={handleVerify}
+                        />
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
 
-              {activeCommitments.length === 0 ? (
-                <p className="empty-state">No active commitments right now.</p>
-              ) : (
-                <div className="commitment-list">
-                  {activeCommitments.map((commitment) => (
-                    <CommitmentCard
-                      commitment={commitment}
-                      key={commitment.id}
-                      onAppeal={handleAppeal}
-                      onFinalize={handleFinalize}
-                      onResolveAppeal={handleResolveAppeal}
-                      onUploadEvidence={handleUploadEvidence}
-                      onVerify={handleVerify}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="commitment-section">
-              <div className="section-row">
-                <div>
-                  <p className="section-label">History</p>
-                  <h3 className="subsection-title">Settled commitments</h3>
-                </div>
-                <span className="count-pill">{settledCommitments.length}</span>
+                <Card className="overflow-hidden rounded-[30px] border-white/10 bg-white/[0.03]">
+                  <CardHeader className="space-y-3 border-b border-white/8 pb-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-2">
+                        <Badge variant="success">History</Badge>
+                        <CardTitle className="text-xl">Settled commitments</CardTitle>
+                      </div>
+                      <Badge variant="secondary">{settledCommitments.length}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-6">
+                    {settledCommitments.length === 0 ? (
+                      <EmptyState
+                        description="Completed and failed-final commitments will appear here once they reach a terminal state."
+                        icon={History}
+                        title="No settled commitments"
+                      />
+                    ) : (
+                      settledCommitments.map((commitment) => (
+                        <CommitmentCard
+                          commitment={commitment}
+                          key={commitment.id}
+                          onAppeal={handleAppeal}
+                          onFinalize={handleFinalize}
+                          onResolveAppeal={handleResolveAppeal}
+                          onUploadEvidence={handleUploadEvidence}
+                          onVerify={handleVerify}
+                        />
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-
-              {settledCommitments.length === 0 ? (
-                <p className="empty-state">
-                  Completed and failed-final commitments will appear here.
-                </p>
-              ) : (
-                <div className="commitment-list">
-                  {settledCommitments.map((commitment) => (
-                    <CommitmentCard
-                      commitment={commitment}
-                      key={commitment.id}
-                      onAppeal={handleAppeal}
-                      onFinalize={handleFinalize}
-                      onResolveAppeal={handleResolveAppeal}
-                      onUploadEvidence={handleUploadEvidence}
-                      onVerify={handleVerify}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-        )}
-      </section>
+            )}
+          </CardContent>
+        </Card>
+      </motion.section>
     </main>
   );
 }

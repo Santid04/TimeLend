@@ -12,11 +12,21 @@
     "clean": "pnpm exec rimraf .next tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@timelend/shared": "workspace:*",
+    "@radix-ui/react-checkbox": "^1.3.3",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@tailwindcss/postcss": "^4.2.2",
     "@tanstack/react-query": "^5.66.8",
+    "@timelend/shared": "workspace:*",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.6.0",
     "next": "^15.2.4",
+    "postcss": "^8.5.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.2",
     "viem": "^2.23.2",
     "wagmi": "^2.14.16",
     "zod": "^3.24.2"

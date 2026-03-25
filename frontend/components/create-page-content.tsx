@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { ArrowRight, CalendarClock, LayoutDashboard, Wallet, Workflow } from "lucide-react";
 
 import { CommitmentCreateForm } from "@/components/commitment-create-form";
+import { MetricCard } from "@/components/metric-card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   buildDeadlineFromDateOnly,
   getFailReceiverValidationError,
@@ -13,39 +19,20 @@ import { useTimeLendWalletActions } from "@/hooks/use-timelend-wallet-actions";
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { createCommitmentRecord } from "@/services/timelend-api";
 import type { CreateCommitmentFormValues } from "@/types/frontend";
+import { formatShortAddress } from "@/lib/utils";
 
-function formatShortAddress(address: string | undefined) {
-  if (address === undefined) {
-    return "Not connected";
-  }
+const reveal = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
 
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-/**
- * This component renders the focused create route while preserving the original create flow logic.
- * It receives no props because wallet state and submission state are managed locally through existing hooks.
- * It returns the creation page with wallet controls, the existing form, and supporting guidance.
- * It is important because the user now needs a dedicated create route without changing contract or API behavior.
- */
 export function CreatePageContent() {
-  const {
-    address,
-    isAuthenticated,
-    isOnSupportedChain,
-    session,
-  } = useWalletSession();
+  const { address, isAuthenticated, isOnSupportedChain, session } = useWalletSession();
   const { createCommitmentWithWallet, walletReady } = useTimeLendWalletActions();
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  /**
-   * This function creates the commitment on-chain and then persists its metadata in the backend.
-   * It receives the controlled create-form values.
-   * It returns a promise that resolves after the chain transaction and backend sync finish.
-   * It is important because the create page must preserve the existing production-like submission flow.
-   */
   async function handleCreateCommitment(values: CreateCommitmentFormValues) {
     if (!isAuthenticated || session === null || address === undefined) {
       throw new Error("Connect and authenticate a wallet before creating commitments.");
@@ -109,101 +96,156 @@ export function CreatePageContent() {
   }
 
   return (
-    <main className="demo-shell page-shell">
-      <div className="demo-orb demo-orb-primary" aria-hidden="true" />
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-8 pt-6">
+      <motion.section
+        animate="visible"
+        className="glass-noise overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,42,0.92),rgba(8,12,24,0.82))] px-6 py-7 shadow-[0_30px_100px_-36px_rgba(2,6,23,0.96)] backdrop-blur-2xl sm:px-8 sm:py-8"
+        initial="hidden"
+        variants={reveal}
+      >
+        <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-5">
+            <Badge variant="secondary">Create commitment</Badge>
+            <div className="space-y-4">
+              <h1 className="max-w-4xl font-display text-4xl font-semibold tracking-[-0.06em] text-white text-balance sm:text-5xl">
+                Publish the escrow and goal with a guided, onboarding-style flow.
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-slate-300/78 sm:text-lg">
+                This page keeps the exact same creation logic, but now the form is split into clearer
+                steps, supported by a live review sidebar and cleaner progress cues.
+              </p>
+            </div>
 
-      <section className="panel page-header">
-        <p className="section-label">Create commitment</p>
-        <h1 className="page-title">Publish the escrow and goal.</h1>
-        <p className="page-subtitle">
-          Use the exact existing create flow to lock AVAX on-chain and register the matching
-          backend record. The route is now cleaner and focused, but the submission behavior stays
-          the same.
-        </p>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild size="lg" variant="secondary">
+                <Link href="/">
+                  <ArrowRight className="rotate-180" />
+                  Back home
+                </Link>
+              </Button>
+              <Button asChild size="lg">
+                <Link href="/dashboard">
+                  <LayoutDashboard />
+                  Open dashboard
+                </Link>
+              </Button>
+            </div>
+          </div>
 
-        <div className="header-card-row">
-          <div className="metric-card metric-card-primary">
-            <span>Wallet address</span>
-            <strong>{formatShortAddress(address)}</strong>
-            <small>Connect and authenticate from Home before submitting.</small>
-          </div>
-          <div className="metric-card">
-            <span>Route focus</span>
-            <strong>Create only</strong>
-            <small>The full create form has maximum space and a cleaner reading flow.</small>
-          </div>
-          <div className="metric-card">
-            <span>Next step</span>
-            <strong>Dashboard</strong>
-            <small>After publishing, move to Dashboard for evidence and verification.</small>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MetricCard
+              helper="Authenticate from Home before publishing the escrow."
+              icon={Wallet}
+              label="Wallet"
+              tone="accent"
+              value={formatShortAddress(address, 8, 5)}
+            />
+            <MetricCard
+              helper="This route is dedicated to the publication step only."
+              icon={Workflow}
+              label="Flow"
+              tone="neutral"
+              value="Create only"
+            />
+            <MetricCard
+              helper="After publishing, use the dashboard for evidence and verification."
+              icon={LayoutDashboard}
+              label="Next stop"
+              tone="success"
+              value="Dashboard"
+            />
+            <MetricCard
+              helper="Deadlines remain date-only in the interface, just with better guidance."
+              icon={CalendarClock}
+              label="Deadline"
+              tone="warning"
+              value="dd/mm/yyyy"
+            />
           </div>
         </div>
-
-        <div className="header-actions">
-          <Link className="button button-secondary button-compact" href="/">
-            Back home
-          </Link>
-          <Link className="button button-primary button-compact" href="/dashboard">
-            Open dashboard
-          </Link>
-        </div>
-      </section>
+      </motion.section>
 
       {!isAuthenticated || !isOnSupportedChain ? (
-        <section className="panel guard-panel">
-          <p className="section-label">Wallet gate</p>
-          <h2 className="section-title">Connect and authenticate on Home first</h2>
-          <p className="muted-copy">
-            This page keeps the same create logic, but the wallet controls now live on Home. Use
-            your wallet there, then return here to submit.
-          </p>
-        </section>
+        <motion.section
+          animate="visible"
+          initial="hidden"
+          transition={{ delay: 0.05 }}
+          variants={reveal}
+        >
+          <Card className="overflow-hidden rounded-[32px] border-amber-300/16 bg-[linear-gradient(180deg,rgba(56,38,16,0.86),rgba(21,14,7,0.8))]">
+            <CardHeader className="space-y-3">
+              <Badge variant="warning">Wallet gate</Badge>
+              <CardTitle className="text-2xl">Connect and authenticate on Home first</CardTitle>
+              <CardDescription>
+                Create logic is unchanged, but this route assumes the wallet is already connected,
+                signed in, and on Avalanche Fuji.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </motion.section>
       ) : null}
 
-      <section className="panel info-panel">
-        <div className="panel-header">
-          <div>
-            <p className="section-label">Before you submit</p>
-            <h2 className="section-title">Keep the same flow, just cleaner</h2>
-          </div>
+      <motion.section
+        animate="visible"
+        initial="hidden"
+        transition={{ delay: 0.08 }}
+        variants={reveal}
+      >
+        <Card className="overflow-hidden rounded-[32px]">
+          <CardHeader className="space-y-3">
+            <Badge variant="outline">Before you submit</Badge>
+            <CardTitle className="text-2xl">Three quick checks before publishing</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">01</p>
+              <p className="mt-3 text-base font-semibold text-white">Wallet authenticated</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300/72">
+                Connect and sign on Home before returning to this page.
+              </p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">02</p>
+              <p className="mt-3 text-base font-semibold text-white">Fuji selected</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300/72">
+                Contract creation still requires Avalanche Fuji exactly as before.
+              </p>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">03</p>
+              <p className="mt-3 text-base font-semibold text-white">Dashboard next</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300/72">
+                After publish, use the dashboard to upload evidence and operate the rest of the flow.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.section>
+
+      {createError !== null ? (
+        <div className="rounded-[24px] border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
+          {createError}
         </div>
-
-        <div className="timeline-list">
-          <div className="timeline-item">
-            <span className="timeline-step">01</span>
-            <div>
-              <strong>Wallet authenticated on Home</strong>
-              <p>Connect and sign from the Home page before attempting submission here.</p>
-            </div>
-          </div>
-          <div className="timeline-item">
-            <span className="timeline-step">02</span>
-            <div>
-              <strong>Fuji selected</strong>
-              <p>The contract call still requires Avalanche Fuji exactly as before.</p>
-            </div>
-          </div>
-          <div className="timeline-item">
-            <span className="timeline-step">03</span>
-            <div>
-              <strong>Dashboard after create</strong>
-              <p>Once published, move to Dashboard to upload evidence and drive verification.</p>
-            </div>
-          </div>
+      ) : null}
+      {pageMessage !== null ? (
+        <div className="rounded-[24px] border border-emerald-300/18 bg-emerald-400/[0.08] p-4 text-sm text-emerald-100">
+          {pageMessage}
         </div>
-      </section>
+      ) : null}
 
-      <CommitmentCreateForm
-        canSubmit={isAuthenticated && isOnSupportedChain && walletReady}
-        isSubmitting={isCreating}
-        onSubmit={handleCreateCommitment}
-        userWalletAddress={address}
-      />
-
-      <div className="notice-stack" aria-live="polite">
-        {createError !== null ? <p className="feedback feedback-error">{createError}</p> : null}
-        {pageMessage !== null ? <p className="feedback feedback-success">{pageMessage}</p> : null}
-      </div>
+      <motion.div
+        animate="visible"
+        initial="hidden"
+        transition={{ delay: 0.12 }}
+        variants={reveal}
+      >
+        <CommitmentCreateForm
+          canSubmit={isAuthenticated && isOnSupportedChain && walletReady}
+          isSubmitting={isCreating}
+          onSubmit={handleCreateCommitment}
+          userWalletAddress={address}
+        />
+      </motion.div>
     </main>
   );
 }

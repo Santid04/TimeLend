@@ -5,10 +5,13 @@
  */
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Manrope, Space_Grotesk } from "next/font/google";
+import { ArrowUpRight, BriefcaseBusiness, Code2, ShieldCheck, X } from "lucide-react";
 
 import { AppProviders } from "@/components/app-providers";
 import { SiteNavigation } from "@/components/site-navigation";
 import { siteConfig } from "@/lib/site-config";
+import { cn } from "@/lib/utils";
 
 import "./globals.css";
 
@@ -23,6 +26,16 @@ export const metadata: Metadata = {
   description: "Premium TimeLend demo for wallet auth, on-chain commitments, and AI verification.",
 };
 
+const bodyFont = Manrope({
+  subsets: ["latin"],
+  variable: "--font-body",
+});
+
+const displayFont = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display",
+});
+
 type RootLayoutProps = {
   children: ReactNode;
 };
@@ -36,31 +49,74 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es">
-      <body className="app-body">
+      <body className={cn("app-shell", bodyFont.variable, displayFont.variable)}>
         <AppProviders>
-          <div className="app-frame">
+          <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-4 pb-8 sm:px-6 lg:px-8">
             <SiteNavigation />
-            <div className="site-main">{children}</div>
+            <div className="flex-1">{children}</div>
 
-            <footer className="demo-footer">
-              <div className="footer-signoff">
-                <p className="section-label">{siteConfig.name}</p>
-                <p className="footer-copy">
-                  Premium demo surface for TimeLend wallet auth, on-chain commitments, AI
+            <footer className="glass-noise mt-10 grid gap-6 rounded-[30px] border border-white/10 bg-slate-950/45 px-6 py-6 shadow-[0_24px_80px_-32px_rgba(2,6,23,0.92)] backdrop-blur-2xl lg:grid-cols-[1.3fr_0.7fr]">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-2xl border border-emerald-300/16 bg-emerald-400/10 text-emerald-100">
+                    <ShieldCheck className="size-5" />
+                  </div>
+                  <div>
+                    <p className="section-eyebrow">{siteConfig.name}</p>
+                    <p className="font-display text-lg font-semibold tracking-tight text-white">
+                      Production-grade demo surface
+                    </p>
+                  </div>
+                </div>
+
+                <p className="max-w-2xl text-sm leading-6 text-slate-300/72">
+                  A refined interface for wallet auth, on-chain commitment creation, AI
                   verification, appeals, and settlement on Avalanche Fuji.
                 </p>
-                <p className="footer-credit">Built by D&apos;Andrea Santiago</p>
+
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">
+                  Built by D&apos;Andrea Santiago
+                </p>
               </div>
 
-              <div className="footer-links" aria-label="Community links">
-                <a href="https://x.com" rel="noreferrer" target="_blank">
-                  X
+              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1" aria-label="Community links">
+                <a
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition-all hover:-translate-y-0.5 hover:border-white/16 hover:bg-white/[0.08]"
+                  href="https://x.com"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <span className="flex items-center gap-2">
+                    <X className="size-4" />
+                    X
+                  </span>
+                  <ArrowUpRight className="size-4 text-slate-400" />
                 </a>
-                <a href="https://github.com" rel="noreferrer" target="_blank">
-                  GitHub
+
+                <a
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition-all hover:-translate-y-0.5 hover:border-white/16 hover:bg-white/[0.08]"
+                  href="https://github.com"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <span className="flex items-center gap-2">
+                    <Code2 className="size-4" />
+                    GitHub
+                  </span>
+                  <ArrowUpRight className="size-4 text-slate-400" />
                 </a>
-                <a href="https://linkedin.com" rel="noreferrer" target="_blank">
-                  LinkedIn
+
+                <a
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition-all hover:-translate-y-0.5 hover:border-white/16 hover:bg-white/[0.08]"
+                  href="https://linkedin.com"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <span className="flex items-center gap-2">
+                    <BriefcaseBusiness className="size-4" />
+                    LinkedIn
+                  </span>
+                  <ArrowUpRight className="size-4 text-slate-400" />
                 </a>
               </div>
             </footer>
