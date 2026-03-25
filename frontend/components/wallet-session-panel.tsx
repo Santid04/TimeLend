@@ -164,7 +164,7 @@ export function WalletSessionPanel({
 
         <Separator className="soft-divider" />
 
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-4 2xl:grid-cols-2">
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
@@ -172,11 +172,15 @@ export function WalletSessionPanel({
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Wallet address</p>
-                <p className="mt-1 text-base font-semibold text-white">
-                  {address ?? "Waiting for connection"}
-                </p>
               </div>
             </div>
+
+            <div className="mt-4 rounded-xl border border-white/8 bg-slate-950/36 px-4 py-3">
+              <p className="break-all text-sm font-semibold text-white sm:text-base">
+                {address ?? "Waiting for connection"}
+              </p>
+            </div>
+
             <p className="mt-4 text-sm leading-6 text-slate-300/72">
               Quick view: {formatShortAddress(address)}. The full address stays available here while
               the rest of the app keeps things compact.
