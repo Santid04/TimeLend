@@ -99,31 +99,29 @@ export function CreatePageContent() {
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-8 pt-6">
       <motion.section
         animate="visible"
-        className="glass-noise overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,42,0.92),rgba(8,12,24,0.82))] px-6 py-7 shadow-[0_30px_100px_-36px_rgba(2,6,23,0.96)] backdrop-blur-2xl sm:px-8 sm:py-8"
+        className="glass-noise overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,42,0.92),rgba(8,12,24,0.82))] px-6 py-7 shadow-[0_30px_100px_-36px_rgba(2,6,23,0.96)] backdrop-blur-xl sm:px-8 sm:py-8"
         initial="hidden"
         variants={reveal}
       >
-        <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-8">
           <div className="space-y-5">
             <Badge variant="secondary">Create commitment</Badge>
-            <div className="space-y-4">
-              <h1 className="max-w-4xl font-display text-4xl font-semibold tracking-[-0.06em] text-white text-balance sm:text-5xl">
-                Publish the escrow and goal with a guided, onboarding-style flow.
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-300/78 sm:text-lg">
-                This page keeps the exact same creation logic, but now the form is split into clearer
-                steps, supported by a live review sidebar and cleaner progress cues.
-              </p>
-            </div>
+            <h1 className="max-w-none font-display text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
+              Publish the escrow and goal with a guided, onboarding-style flow.
+            </h1>
+            <p className="max-w-4xl text-base leading-7 text-slate-300/78 sm:text-lg">
+              This page keeps the exact same creation logic, but now the form is split into clearer
+              steps, supported by a live review panel and more consistent product-level hierarchy.
+            </p>
 
             <div className="flex flex-wrap gap-3">
-              <Button asChild size="lg" variant="secondary">
+              <Button asChild variant="secondary">
                 <Link href="/">
                   <ArrowRight className="rotate-180" />
                   Back home
                 </Link>
               </Button>
-              <Button asChild size="lg">
+              <Button asChild>
                 <Link href="/dashboard">
                   <LayoutDashboard />
                   Open dashboard
@@ -132,7 +130,7 @@ export function CreatePageContent() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               helper="Authenticate from Home before publishing the escrow."
               icon={Wallet}
@@ -172,7 +170,7 @@ export function CreatePageContent() {
           transition={{ delay: 0.05 }}
           variants={reveal}
         >
-          <Card className="overflow-hidden rounded-[32px] border-amber-300/16 bg-[linear-gradient(180deg,rgba(56,38,16,0.86),rgba(21,14,7,0.8))]">
+          <Card className="overflow-hidden rounded-2xl border-amber-300/16 bg-[linear-gradient(180deg,rgba(56,38,16,0.86),rgba(21,14,7,0.8))]">
             <CardHeader className="space-y-3">
               <Badge variant="warning">Wallet gate</Badge>
               <CardTitle className="text-2xl">Connect and authenticate on Home first</CardTitle>
@@ -191,27 +189,27 @@ export function CreatePageContent() {
         transition={{ delay: 0.08 }}
         variants={reveal}
       >
-        <Card className="overflow-hidden rounded-[32px]">
+        <Card className="overflow-hidden rounded-2xl">
           <CardHeader className="space-y-3">
             <Badge variant="outline">Before you submit</Badge>
             <CardTitle className="text-2xl">Three quick checks before publishing</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">01</p>
               <p className="mt-3 text-base font-semibold text-white">Wallet authenticated</p>
               <p className="mt-2 text-sm leading-6 text-slate-300/72">
                 Connect and sign on Home before returning to this page.
               </p>
             </div>
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">02</p>
               <p className="mt-3 text-base font-semibold text-white">Fuji selected</p>
               <p className="mt-2 text-sm leading-6 text-slate-300/72">
                 Contract creation still requires Avalanche Fuji exactly as before.
               </p>
             </div>
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">03</p>
               <p className="mt-3 text-base font-semibold text-white">Dashboard next</p>
               <p className="mt-2 text-sm leading-6 text-slate-300/72">
@@ -223,12 +221,12 @@ export function CreatePageContent() {
       </motion.section>
 
       {createError !== null ? (
-        <div className="rounded-[24px] border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
+        <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
           {createError}
         </div>
       ) : null}
       {pageMessage !== null ? (
-        <div className="rounded-[24px] border border-emerald-300/18 bg-emerald-400/[0.08] p-4 text-sm text-emerald-100">
+        <div className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.08] p-4 text-sm text-emerald-100">
           {pageMessage}
         </div>
       ) : null}

@@ -109,31 +109,29 @@ export function DashboardPageContent() {
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-8 pt-6">
       <motion.section
         animate="visible"
-        className="glass-noise overflow-hidden rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,42,0.92),rgba(8,12,24,0.82))] px-6 py-7 shadow-[0_30px_100px_-36px_rgba(2,6,23,0.96)] backdrop-blur-2xl sm:px-8 sm:py-8"
+        className="glass-noise overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,42,0.92),rgba(8,12,24,0.82))] px-6 py-7 shadow-[0_30px_100px_-36px_rgba(2,6,23,0.96)] backdrop-blur-xl sm:px-8 sm:py-8"
         initial="hidden"
         variants={reveal}
       >
-        <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-8">
           <div className="space-y-5">
             <Badge variant="secondary">Dashboard</Badge>
-            <div className="space-y-4">
-              <h1 className="max-w-4xl font-display text-4xl font-semibold tracking-[-0.06em] text-white text-balance sm:text-5xl">
-                Operate the commitment pipeline from one financial-style control center.
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-300/78 sm:text-lg">
-                Review live positions, upload evidence, trigger verification, and handle appeals or
-                finalization without changing the underlying workflow logic.
-              </p>
-            </div>
+            <h1 className="max-w-none font-display text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
+              Operate the commitment pipeline from one financial-style control center.
+            </h1>
+            <p className="max-w-4xl text-base leading-7 text-slate-300/78 sm:text-lg">
+              Review live positions, upload evidence, trigger verification, and handle appeals or
+              finalization without changing the underlying workflow logic.
+            </p>
 
             <div className="flex flex-wrap gap-3">
-              <Button asChild size="lg" variant="secondary">
+              <Button asChild variant="secondary">
                 <Link href="/">
                   <Wallet />
                   Back home
                 </Link>
               </Button>
-              <Button asChild size="lg">
+              <Button asChild>
                 <Link href="/create">
                   <PlusCircle />
                   New commitment
@@ -142,7 +140,7 @@ export function DashboardPageContent() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               helper="Compact wallet visibility while staying focused on positions and actions."
               icon={Wallet}
@@ -176,12 +174,12 @@ export function DashboardPageContent() {
       </motion.section>
 
       {pageMessage !== null ? (
-        <div className="rounded-[24px] border border-emerald-300/18 bg-emerald-400/[0.08] p-4 text-sm text-emerald-100">
+        <div className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.08] p-4 text-sm text-emerald-100">
           {pageMessage}
         </div>
       ) : null}
       {dashboardError !== null ? (
-        <div className="rounded-[24px] border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
+        <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
           {dashboardError}
         </div>
       ) : null}
@@ -192,7 +190,7 @@ export function DashboardPageContent() {
         transition={{ delay: 0.06 }}
         variants={reveal}
       >
-        <Card className="overflow-hidden rounded-[32px]">
+        <Card className="overflow-hidden rounded-2xl">
           <CardHeader className="flex flex-col gap-5 border-b border-white/8 pb-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-3">
               <Badge variant="outline">Portfolio overview</Badge>
@@ -228,11 +226,11 @@ export function DashboardPageContent() {
             {!initialLoadComplete ? (
               <div className="grid gap-4">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Skeleton className="h-40 rounded-[28px]" />
-                  <Skeleton className="h-40 rounded-[28px]" />
+                  <Skeleton className="h-40 rounded-2xl" />
+                  <Skeleton className="h-40 rounded-2xl" />
                 </div>
-                <Skeleton className="h-44 rounded-[28px]" />
-                <Skeleton className="h-44 rounded-[28px]" />
+                <Skeleton className="h-44 rounded-2xl" />
+                <Skeleton className="h-44 rounded-2xl" />
               </div>
             ) : !isAuthenticated ? (
               <EmptyState
@@ -258,7 +256,7 @@ export function DashboardPageContent() {
               />
             ) : (
               <div className="grid gap-6">
-                <Card className="overflow-hidden rounded-[30px] border-white/10 bg-white/[0.03]">
+                <Card className="overflow-hidden rounded-2xl border-white/10 bg-white/[0.03]">
                   <CardHeader className="space-y-3 border-b border-white/8 pb-5">
                     <div className="flex items-center justify-between gap-4">
                       <div className="space-y-2">
@@ -291,7 +289,7 @@ export function DashboardPageContent() {
                   </CardContent>
                 </Card>
 
-                <Card className="overflow-hidden rounded-[30px] border-white/10 bg-white/[0.03]">
+                <Card className="overflow-hidden rounded-2xl border-white/10 bg-white/[0.03]">
                   <CardHeader className="space-y-3 border-b border-white/8 pb-5">
                     <div className="flex items-center justify-between gap-4">
                       <div className="space-y-2">

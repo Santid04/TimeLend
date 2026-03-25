@@ -13,11 +13,11 @@ type MetricCardProps = {
 
 const toneClasses = {
   accent:
-    "border-cyan-300/16 bg-[linear-gradient(180deg,rgba(19,33,66,0.96),rgba(10,16,34,0.92))] shadow-[0_22px_60px_-28px_rgba(76,214,255,0.75)]",
+    "border-cyan-300/16 bg-[linear-gradient(180deg,rgba(19,33,66,0.94),rgba(10,16,34,0.9))] shadow-[0_18px_44px_-24px_rgba(76,214,255,0.52)]",
   danger:
     "border-rose-300/16 bg-[linear-gradient(180deg,rgba(54,22,34,0.92),rgba(21,10,18,0.88))]",
   neutral:
-    "border-white/10 bg-[linear-gradient(180deg,rgba(15,22,44,0.86),rgba(8,12,24,0.76))]",
+    "border-white/10 bg-[linear-gradient(180deg,rgba(15,22,44,0.84),rgba(8,12,24,0.74))]",
   success:
     "border-emerald-300/16 bg-[linear-gradient(180deg,rgba(15,43,35,0.92),rgba(8,19,18,0.88))]",
   warning:
@@ -40,7 +40,7 @@ export function MetricCard({
   value,
 }: MetricCardProps) {
   return (
-    <Card className={cn("group overflow-hidden rounded-[26px]", toneClasses[tone])}>
+    <Card className={cn("group overflow-hidden rounded-2xl", toneClasses[tone])}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-3">

@@ -55,7 +55,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
             <SiteNavigation />
             <div className="flex-1">{children}</div>
 
-            <footer className="glass-noise mt-10 grid gap-6 rounded-[30px] border border-white/10 bg-slate-950/45 px-6 py-6 shadow-[0_24px_80px_-32px_rgba(2,6,23,0.92)] backdrop-blur-2xl lg:grid-cols-[1.3fr_0.7fr]">
+            <footer className="glass-noise mt-10 grid gap-6 rounded-2xl border border-white/10 bg-slate-950/45 px-6 py-6 shadow-[0_24px_80px_-32px_rgba(2,6,23,0.92)] backdrop-blur-xl lg:grid-cols-2">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="flex size-10 items-center justify-center rounded-2xl border border-emerald-300/16 bg-emerald-400/10 text-emerald-100">

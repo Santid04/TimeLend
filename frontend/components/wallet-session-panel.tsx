@@ -46,7 +46,7 @@ export function WalletSessionPanel({
   sessionError,
 }: WalletSessionPanelProps) {
   return (
-    <Card className="glass-noise overflow-hidden rounded-[32px]">
+    <Card className="glass-noise overflow-hidden rounded-2xl">
       <CardHeader className="flex flex-col gap-5 border-b border-white/8 pb-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-3">
           <Badge variant="secondary">Wallet control</Badge>
@@ -70,7 +70,7 @@ export function WalletSessionPanel({
 
       <CardContent className="space-y-6 pt-6">
         <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-[24px] border border-cyan-300/14 bg-cyan-300/[0.08] p-5">
+          <div className="rounded-2xl border border-cyan-300/14 bg-cyan-300/[0.08] p-5">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex size-11 items-center justify-center rounded-2xl bg-cyan-300/12 text-cyan-100">
                 <PlugZap className="size-5" />
@@ -88,7 +88,7 @@ export function WalletSessionPanel({
             </p>
           </div>
 
-          <div className="rounded-[24px] border border-emerald-300/14 bg-emerald-400/[0.08] p-5">
+          <div className="rounded-2xl border border-emerald-300/14 bg-emerald-400/[0.08] p-5">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-400/12 text-emerald-100">
                 <ShieldCheck className="size-5" />
@@ -106,7 +106,7 @@ export function WalletSessionPanel({
             </p>
           </div>
 
-          <div className="rounded-[24px] border border-amber-300/14 bg-amber-400/[0.08] p-5">
+          <div className="rounded-2xl border border-amber-300/14 bg-amber-400/[0.08] p-5">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex size-11 items-center justify-center rounded-2xl bg-amber-400/12 text-amber-100">
                 <ArrowRightLeft className="size-5" />
@@ -164,8 +164,8 @@ export function WalletSessionPanel({
 
         <Separator className="soft-divider" />
 
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
                 <Wallet className="size-5" />
@@ -183,7 +183,7 @@ export function WalletSessionPanel({
             </p>
           </div>
 
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">State checklist</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Badge variant={isConnected ? "success" : "warning"}>1. Connect</Badge>
@@ -198,7 +198,7 @@ export function WalletSessionPanel({
         </div>
 
         {sessionError !== null ? (
-          <div className="rounded-[24px] border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
+          <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
             {sessionError}
           </div>
         ) : null}

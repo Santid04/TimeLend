@@ -100,7 +100,7 @@ function DetailCard({
   title: string;
 }) {
   return (
-    <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
       <div className="mb-4 flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
           <Icon className="size-4" />
@@ -212,7 +212,7 @@ export function CommitmentCard({
 
   return (
     <motion.article
-      className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,40,0.84),rgba(9,12,24,0.78))] shadow-[0_24px_80px_-36px_rgba(2,6,23,0.94)]"
+      className="overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,40,0.84),rgba(9,12,24,0.78))] shadow-[0_24px_80px_-36px_rgba(2,6,23,0.94)]"
       layout
       transition={{ duration: 0.24, ease: "easeOut" }}
     >
@@ -234,7 +234,7 @@ export function CommitmentCard({
               <h3 className="font-display text-xl font-semibold tracking-tight text-white">
                 {commitment.title}
               </h3>
-              <p className="max-w-3xl text-sm leading-6 text-slate-300/72">
+              <p className="text-sm leading-6 text-slate-300/72">
                 Deadline {formatDateOnly(commitment.deadline)}. Evidence {commitment.evidences.length}.
                 Latest verification {latestVerification ? "available" : "pending"}.
               </p>
@@ -242,7 +242,7 @@ export function CommitmentCard({
           </div>
 
           <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-            <div className="rounded-[22px] border border-white/10 bg-white/[0.05] px-4 py-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
                 Stake
               </p>
@@ -250,7 +250,7 @@ export function CommitmentCard({
                 {formatEther(BigInt(commitment.amount))} AVAX
               </p>
             </div>
-            <div className="rounded-[22px] border border-white/10 bg-white/[0.05] px-4 py-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
                 State
               </p>
@@ -259,7 +259,7 @@ export function CommitmentCard({
                 <Badge variant="outline">{formatCommitmentStatus(commitment.status)}</Badge>
               </div>
             </div>
-            <div className="flex size-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-slate-300 transition-transform group-hover:border-white/16 group-hover:text-white">
+            <div className="flex size-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-slate-300 transition-transform group-hover:border-white/16 group-hover:text-white">
               <ChevronDown className={`size-5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
             </div>
           </div>
@@ -277,14 +277,14 @@ export function CommitmentCard({
           >
             <div className="border-t border-white/8 px-5 pb-5 pt-5 sm:px-6 sm:pb-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Deadline</p>
                   <p className="mt-2 text-base font-semibold text-white">{formatDateOnly(commitment.deadline)}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-300/72">
                     Appeal window: {formatDateOnly(commitment.appealWindowEndsAt)}
                   </p>
                 </div>
-                <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Evidence</p>
                   <p className="mt-2 text-base font-semibold text-white">
                     {commitment.evidences.length} entries
@@ -293,7 +293,7 @@ export function CommitmentCard({
                     Latest: {describeEvidenceEntry(latestEvidence)}
                   </p>
                 </div>
-                <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Fail receiver</p>
                   <p className="mt-2 break-all text-base font-semibold text-white">
                     {formatShortAddress(commitment.failReceiver, 8, 5)}
@@ -302,7 +302,7 @@ export function CommitmentCard({
                     Full address available in the detail panel below.
                   </p>
                 </div>
-                <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Current status</p>
                   <p className="mt-2 text-base font-semibold text-white">
                     {commitment.isProcessing ? "Processing" : formatCommitmentStatus(commitment.status)}
@@ -313,7 +313,7 @@ export function CommitmentCard({
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]">
+              <div className="mt-5 grid gap-5 xl:grid-cols-2 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                 <div className="space-y-5">
                   <DetailCard icon={FileText} title="Description">
                     <p className="whitespace-pre-wrap">{commitment.description}</p>
@@ -359,7 +359,7 @@ export function CommitmentCard({
                   </DetailCard>
 
                   {appealHint !== null ? (
-                    <div className="rounded-[26px] border border-amber-300/16 bg-amber-400/[0.08] p-5">
+                    <div className="rounded-2xl border border-amber-300/16 bg-amber-400/[0.08] p-5">
                       <div className="mb-3 flex items-center gap-3">
                         <div className="flex size-10 items-center justify-center rounded-2xl bg-amber-400/12 text-amber-100">
                           <AlertTriangle className="size-4" />
@@ -373,7 +373,7 @@ export function CommitmentCard({
                   ) : null}
 
                   {canSubmitEvidence ? (
-                    <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
                       <div className="mb-5 flex items-start gap-3">
                         <div className="flex size-10 items-center justify-center rounded-2xl bg-cyan-300/12 text-cyan-100">
                           <UploadCloud className="size-4" />
@@ -472,7 +472,7 @@ export function CommitmentCard({
                       </div>
                     </div>
                   ) : evidenceLockMessage !== null ? (
-                    <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
                       <div className="mb-3 flex items-center gap-3">
                         <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
                           <UploadCloud className="size-4" />
@@ -487,7 +487,7 @@ export function CommitmentCard({
                 </div>
 
                 <div className="space-y-5">
-                  <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
                     <div className="mb-5 flex items-start gap-3">
                       <div className="flex size-10 items-center justify-center rounded-2xl bg-indigo-400/12 text-indigo-100">
                         <Gavel className="size-4" />
@@ -563,7 +563,7 @@ export function CommitmentCard({
                     </div>
                   </div>
 
-                  <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
                         <Wallet className="size-4" />
@@ -595,7 +595,7 @@ export function CommitmentCard({
 
                   {cardMessage !== null ? (
                     <div
-                      className={`rounded-[24px] p-4 text-sm ${
+                      className={`rounded-2xl p-4 text-sm ${
                         cardMessage.tone === "success"
                           ? "border border-emerald-300/18 bg-emerald-400/[0.08] text-emerald-100"
                           : "border border-rose-300/18 bg-rose-400/[0.08] text-rose-100"

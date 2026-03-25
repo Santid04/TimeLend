@@ -104,8 +104,8 @@ export function CommitmentCreateForm({
   }
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]" id="create-panel">
-      <Card className="glass-noise overflow-hidden rounded-[32px]">
+    <section className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]" id="create-panel">
+      <Card className="glass-noise overflow-hidden rounded-2xl">
         <CardHeader className="border-b border-white/8 pb-5">
           <div className="space-y-3">
             <Badge variant="secondary">Guided creation flow</Badge>
@@ -119,7 +119,7 @@ export function CommitmentCreateForm({
 
         <CardContent className="pt-6">
           <form className="space-y-5" onSubmit={(event) => void handleSubmit(event)}>
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
               <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-4">
                   <div className="flex size-12 items-center justify-center rounded-2xl bg-cyan-300/12 text-cyan-100">
@@ -163,7 +163,7 @@ export function CommitmentCreateForm({
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
               <div className="mb-6 flex items-start gap-4">
                 <div className="flex size-12 items-center justify-center rounded-2xl bg-indigo-400/12 text-indigo-100">
                   <Coins className="size-5" />
@@ -211,7 +211,7 @@ export function CommitmentCreateForm({
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
               <div className="mb-6 flex items-start gap-4">
                 <div className="flex size-12 items-center justify-center rounded-2xl bg-amber-400/12 text-amber-100">
                   <ShieldAlert className="size-5" />
@@ -227,7 +227,7 @@ export function CommitmentCreateForm({
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-[24px] border border-white/10 bg-slate-950/30 p-4">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
                   <label className="flex cursor-pointer items-start gap-3">
                     <Checkbox
                       checked={values.useWebOwnerWallet}
@@ -260,12 +260,12 @@ export function CommitmentCreateForm({
             </div>
 
             {formError !== null ? (
-              <div className="rounded-[24px] border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
+              <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
                 {formError}
               </div>
             ) : null}
 
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-5">
               <div>
                 <p className="text-sm font-semibold text-white">Ready to publish</p>
                 <p className="mt-1 text-sm leading-6 text-slate-300/72">
@@ -283,7 +283,7 @@ export function CommitmentCreateForm({
       </Card>
 
       <div className="grid gap-6 xl:sticky xl:top-28 xl:self-start">
-        <Card className="glass-noise overflow-hidden rounded-[32px]">
+        <Card className="glass-noise overflow-hidden rounded-2xl">
           <CardHeader className="space-y-3">
             <Badge variant={canSubmit ? "success" : "warning"}>
               {canSubmit ? "Ready to submit" : "Wallet gate required"}
@@ -294,36 +294,36 @@ export function CommitmentCreateForm({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Title</p>
               <p className="mt-2 text-sm font-semibold text-white">
                 {values.title.trim().length > 0 ? values.title : "Add a clear title"}
               </p>
             </div>
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Stake</p>
               <p className="mt-2 text-sm font-semibold text-white">{values.amountAvax} AVAX</p>
             </div>
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Deadline</p>
               <p className="mt-2 text-sm font-semibold text-white">
                 {values.deadlineDate.trim().length > 0 ? values.deadlineDate : "Select a date"}
               </p>
             </div>
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Fail receiver</p>
               <p className="mt-2 break-all text-sm font-semibold text-white">{effectiveFailReceiverLabel}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden rounded-[32px] border-white/10 bg-white/[0.04]">
+        <Card className="overflow-hidden rounded-2xl border-white/10 bg-white/[0.04]">
           <CardHeader className="space-y-3">
             <Badge variant="outline">Submission checklist</Badge>
             <CardTitle className="text-xl">Before you hit create</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-[22px] border border-white/10 bg-slate-950/28 p-4">
+            <div className="rounded-xl border border-white/10 bg-slate-950/28 p-4">
               <div className="flex items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
                   <Wallet className="size-5" />

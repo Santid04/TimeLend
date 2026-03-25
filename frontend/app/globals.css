@@ -25,7 +25,7 @@
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.08);
   --ring: rgba(76, 214, 255, 0.26);
-  --radius: 1.5rem;
+  --radius: 1rem;
 }
 
 @theme inline {
@@ -72,10 +72,10 @@
   body {
     @apply min-h-screen bg-background font-sans text-foreground antialiased;
     background-image:
-      radial-gradient(circle at top left, rgba(111, 243, 255, 0.18), transparent 24%),
-      radial-gradient(circle at top right, rgba(99, 102, 241, 0.16), transparent 28%),
-      radial-gradient(circle at 20% 80%, rgba(16, 185, 129, 0.08), transparent 18%),
-      linear-gradient(180deg, #0a1020 0%, #050812 48%, #04060d 100%);
+      radial-gradient(circle at top left, rgba(111, 243, 255, 0.12), transparent 24%),
+      radial-gradient(circle at top right, rgba(99, 102, 241, 0.14), transparent 28%),
+      radial-gradient(circle at 20% 80%, rgba(16, 185, 129, 0.06), transparent 18%),
+      linear-gradient(180deg, #0a1020 0%, #060913 52%, #04060d 100%);
   }
 
   body::before {
@@ -84,10 +84,10 @@
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(circle at 15% 15%, rgba(76, 214, 255, 0.12), transparent 24%),
-      radial-gradient(circle at 80% 12%, rgba(99, 102, 241, 0.14), transparent 22%),
-      radial-gradient(circle at 50% 100%, rgba(15, 118, 110, 0.1), transparent 28%);
-    filter: blur(18px);
+      radial-gradient(circle at 15% 15%, rgba(76, 214, 255, 0.08), transparent 24%),
+      radial-gradient(circle at 80% 12%, rgba(99, 102, 241, 0.12), transparent 22%),
+      radial-gradient(circle at 50% 100%, rgba(15, 118, 110, 0.08), transparent 28%);
+    filter: blur(24px);
     z-index: -2;
   }
 
@@ -136,9 +136,9 @@
     inset: 0;
     pointer-events: none;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 22%),
-      radial-gradient(circle at top right, rgba(76, 214, 255, 0.1), transparent 26%);
-    opacity: 0.9;
+      linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 24%),
+      radial-gradient(circle at top right, rgba(76, 214, 255, 0.07), transparent 30%);
+    opacity: 0.72;
   }
 
   .section-eyebrow {
