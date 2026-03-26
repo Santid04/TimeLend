@@ -24,6 +24,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCommitmentsDashboard } from "@/hooks/use-commitments-dashboard";
 import { useTimeLendWalletActions } from "@/hooks/use-timelend-wallet-actions";
 import { useWalletSession } from "@/hooks/use-wallet-session";
+import { useTranslation } from "@/lib/i18n/useTranslation";
+import type { TranslationKey, TranslationValues } from "@/lib/i18n/translations";
 import { formatShortAddress } from "@/lib/utils";
 import {
   finalizeFailedDemo,
@@ -39,12 +41,24 @@ const reveal = {
   visible: { opacity: 1, y: 0 },
 };
 
+type DashboardPageMessage =
+  | {
+      key: TranslationKey;
+      type: "translated";
+      values?: TranslationValues;
+    }
+  | {
+      type: "raw";
+      value: string;
+    };
+
 export function DashboardPageContent() {
+  const { t, translateFrontendMessage, translateStatus } = useTranslation();
   const { address, isAuthenticated, isOnSupportedChain, session } = useWalletSession();
   const { appealCommitmentWithWallet } = useTimeLendWalletActions();
   const { commitments, dashboardError, initialLoadComplete, isRefreshing, refreshCommitments } =
     useCommitmentsDashboard(session, isAuthenticated ? address : undefined);
-  const [pageMessage, setPageMessage] = useState<string | null>(null);
+  const [pageMessage, setPageMessage] = useState<DashboardPageMessage | null>(null);
   const activeCommitments = commitments.filter(
     (commitment) => commitment.status !== "COMPLETED" && commitment.status !== "FAILED_FINAL",
   );
@@ -72,7 +86,10 @@ export function DashboardPageContent() {
     }
 
     const response = await verifyCommitmentRequest(session.token, commitmentId);
-    setPageMessage(response.message);
+    setPageMessage({
+      type: "raw",
+      value: response.message,
+    });
     await refreshCommitments();
   }
 
@@ -87,21 +104,35 @@ export function DashboardPageContent() {
 
     const appealTxHash = await appealCommitmentWithWallet(address, commitment.onchainId);
     await recordAppeal(session.token, commitment.id, appealTxHash);
-    setPageMessage(`Appeal recorded for commitment ${commitment.onchainId}.`);
+    setPageMessage({
+      key: "appealRecordedMessage",
+      type: "translated",
+      values: {
+        id: commitment.onchainId,
+      },
+    });
     await refreshCommitments();
   }
 
   async function handleResolveAppeal(commitmentId: string) {
     const commitment = await resolveAppealDemo(commitmentId);
-    setPageMessage(
-      `Appeal resolved. Commitment ${commitment.onchainId} is now ${commitment.status}.`,
-    );
+    setPageMessage({
+      key: "appealResolvedMessage",
+      type: "translated",
+      values: {
+        id: commitment.onchainId,
+        status: commitment.status,
+      },
+    });
     await refreshCommitments();
   }
 
   async function handleFinalize(commitmentId: string) {
     await finalizeFailedDemo(commitmentId);
-    setPageMessage("Failed commitment finalization requested.");
+    setPageMessage({
+      key: "failedFinalizationRequested",
+      type: "translated",
+    });
     await refreshCommitments();
   }
 
@@ -115,26 +146,25 @@ export function DashboardPageContent() {
       >
         <div className="space-y-8">
           <div className="space-y-5">
-            <Badge variant="secondary">Dashboard</Badge>
+            <Badge variant="secondary">{t("dashboardPageBadge")}</Badge>
             <h1 className="max-w-none font-display text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
-              Operate the commitment pipeline from one financial-style control center.
+              {t("dashboardPageTitle")}
             </h1>
             <p className="max-w-4xl text-base leading-7 text-slate-300/78 sm:text-lg">
-              Review live positions, upload evidence, trigger verification, and handle appeals or
-              finalization without changing the underlying workflow logic.
+              {t("dashboardPageDescription")}
             </p>
 
             <div className="flex flex-wrap gap-3">
               <Button asChild variant="secondary">
                 <Link href="/">
                   <Wallet />
-                  Back home
+                  {t("backHome")}
                 </Link>
               </Button>
               <Button asChild>
                 <Link href="/create">
                   <PlusCircle />
-                  New commitment
+                  {t("newCommitment")}
                 </Link>
               </Button>
             </div>
@@ -142,30 +172,30 @@ export function DashboardPageContent() {
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              helper="Compact wallet visibility while staying focused on positions and actions."
+              helper={t("dashboardMetricWalletHelper")}
               icon={Wallet}
-              label="Wallet"
+              label={t("metricWallet")}
               tone="accent"
-              value={formatShortAddress(address, 8, 5)}
+              value={translateFrontendMessage(formatShortAddress(address, 8, 5))}
             />
             <MetricCard
-              helper="Items still moving through verification, appeal, or settlement."
+              helper={t("openPositionsHelper")}
               icon={Layers3}
-              label="Open positions"
+              label={t("openPositions")}
               tone="warning"
               value={String(activeCommitments.length)}
             />
             <MetricCard
-              helper="Completed or failed-final commitments already resolved."
+              helper={t("historyHelper")}
               icon={History}
-              label="History"
+              label={t("history")}
               tone="success"
               value={String(settledCommitments.length)}
             />
             <MetricCard
-              helper={`${processingCount} commitments currently moving through automation.`}
+              helper={t("stakedHelper", { count: processingCount })}
               icon={Activity}
-              label="Staked"
+              label={t("staked")}
               tone="neutral"
               value={`${formatEther(totalStakedWei)} AVAX`}
             />
@@ -175,12 +205,20 @@ export function DashboardPageContent() {
 
       {pageMessage !== null ? (
         <div className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.08] p-4 text-sm text-emerald-100">
-          {pageMessage}
+          {pageMessage.type === "raw"
+            ? pageMessage.value
+            : t(pageMessage.key, {
+                ...pageMessage.values,
+                ...(pageMessage.key === "appealResolvedMessage" &&
+                typeof pageMessage.values?.status === "string"
+                  ? { status: translateStatus(pageMessage.values.status) }
+                  : {}),
+              })}
         </div>
       ) : null}
       {dashboardError !== null ? (
         <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
-          {dashboardError}
+          {translateFrontendMessage(dashboardError)}
         </div>
       ) : null}
 
@@ -193,12 +231,9 @@ export function DashboardPageContent() {
         <Card className="overflow-hidden rounded-2xl">
           <CardHeader className="flex flex-col gap-5 border-b border-white/8 pb-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-3">
-              <Badge variant="outline">Portfolio overview</Badge>
-              <CardTitle className="text-2xl sm:text-3xl">Your commitments</CardTitle>
-              <CardDescription className="max-w-3xl text-sm sm:text-base">
-                Review active positions, keep an eye on processing commitments, and work through the
-                allowed actions for each item below.
-              </CardDescription>
+              <Badge variant="outline">{t("portfolioOverview")}</Badge>
+              <CardTitle className="text-2xl sm:text-3xl">{t("yourCommitments")}</CardTitle>
+              <CardDescription className="max-w-3xl text-sm sm:text-base">{t("portfolioOverviewDesc")}</CardDescription>
             </div>
 
             <Button
@@ -209,18 +244,20 @@ export function DashboardPageContent() {
               variant="secondary"
             >
               {isRefreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-              {isRefreshing ? "Refreshing..." : "Refresh data"}
+              {isRefreshing ? t("refreshing") : t("refreshData")}
             </Button>
           </CardHeader>
 
           <CardContent className="space-y-6 pt-6">
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">Wallet {isAuthenticated ? "authenticated" : "pending"}</Badge>
-              <Badge variant={isOnSupportedChain ? "success" : "destructive"}>
-                {isOnSupportedChain ? "Fuji ready" : "Wrong network"}
+              <Badge variant="secondary">
+                {isAuthenticated ? t("walletAuthenticatedBadge") : t("walletPendingBadge")}
               </Badge>
-              <Badge variant="warning">{processingCount} processing</Badge>
-              <Badge variant="outline">{commitments.length} total commitments</Badge>
+              <Badge variant={isOnSupportedChain ? "success" : "destructive"}>
+                {isOnSupportedChain ? t("fujiReady") : t("wrongNetwork")}
+              </Badge>
+              <Badge variant="warning">{t("processingCountBadge", { count: processingCount })}</Badge>
+              <Badge variant="outline">{t("totalCommitmentsBadge", { count: commitments.length })}</Badge>
             </div>
 
             {!initialLoadComplete ? (
@@ -236,23 +273,23 @@ export function DashboardPageContent() {
               <EmptyState
                 action={
                   <Button asChild size="lg">
-                    <Link href="/">Authenticate on Home</Link>
+                    <Link href="/">{t("authenticateOnHome")}</Link>
                   </Button>
                 }
-                description="Connect your wallet and sign the session challenge on Home to unlock commitment data and actions here."
+                description={t("authenticateOnHomeDesc")}
                 icon={Wallet}
-                title="Authenticate on Home to load commitments"
+                title={t("authenticateOnHomeTitle")}
               />
             ) : commitments.length === 0 ? (
               <EmptyState
                 action={
                   <Button asChild size="lg">
-                    <Link href="/create">Create your first commitment</Link>
+                    <Link href="/create">{t("createYourFirstCommitment")}</Link>
                   </Button>
                 }
-                description="This dashboard is ready for evidence, verification, appeal, and settlement. Create a commitment first, then return here to operate it."
+                description={t("noCommitmentsYetDesc")}
                 icon={PlusCircle}
-                title="No commitments yet"
+                title={t("noCommitmentsYet")}
               />
             ) : (
               <div className="grid gap-6">
@@ -260,8 +297,8 @@ export function DashboardPageContent() {
                   <CardHeader className="space-y-3 border-b border-white/8 pb-5">
                     <div className="flex items-center justify-between gap-4">
                       <div className="space-y-2">
-                        <Badge variant="warning">Open pipeline</Badge>
-                        <CardTitle className="text-xl">Active, processing, and appeal-stage</CardTitle>
+                        <Badge variant="warning">{t("openPipeline")}</Badge>
+                        <CardTitle className="text-xl">{t("activeProcessingAppealStage")}</CardTitle>
                       </div>
                       <Badge variant="secondary">{activeCommitments.length}</Badge>
                     </div>
@@ -269,9 +306,9 @@ export function DashboardPageContent() {
                   <CardContent className="space-y-4 pt-6">
                     {activeCommitments.length === 0 ? (
                       <EmptyState
-                        description="Everything is settled right now. New active commitments will show up here."
+                        description={t("noActiveCommitmentsDesc")}
                         icon={Layers3}
-                        title="No active commitments"
+                        title={t("noActiveCommitments")}
                       />
                     ) : (
                       activeCommitments.map((commitment) => (
@@ -293,8 +330,8 @@ export function DashboardPageContent() {
                   <CardHeader className="space-y-3 border-b border-white/8 pb-5">
                     <div className="flex items-center justify-between gap-4">
                       <div className="space-y-2">
-                        <Badge variant="success">History</Badge>
-                        <CardTitle className="text-xl">Settled commitments</CardTitle>
+                        <Badge variant="success">{t("history")}</Badge>
+                        <CardTitle className="text-xl">{t("settledCommitments")}</CardTitle>
                       </div>
                       <Badge variant="secondary">{settledCommitments.length}</Badge>
                     </div>
@@ -302,9 +339,9 @@ export function DashboardPageContent() {
                   <CardContent className="space-y-4 pt-6">
                     {settledCommitments.length === 0 ? (
                       <EmptyState
-                        description="Completed and failed-final commitments will appear here once they reach a terminal state."
+                        description={t("noSettledCommitmentsDesc")}
                         icon={History}
-                        title="No settled commitments"
+                        title={t("noSettledCommitments")}
                       />
                     ) : (
                       settledCommitments.map((commitment) => (

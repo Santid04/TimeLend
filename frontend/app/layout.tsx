@@ -6,11 +6,18 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Manrope, Space_Grotesk } from "next/font/google";
+import { cookies } from "next/headers";
 import { ShieldCheck } from "lucide-react";
 import { siGithub, siX } from "simple-icons";
 
 import { AppProviders } from "@/components/app-providers";
 import { SiteNavigation } from "@/components/site-navigation";
+import {
+  defaultLanguage,
+  languageCookieName,
+  resolveLanguage,
+  translations,
+} from "@/lib/i18n/translations";
 import { siteConfig } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
@@ -73,11 +80,17 @@ function SocialIcon({ icon }: SocialIconProps) {
  * It returns the shared HTML and body structure.
  * It is important because it centralizes global wrappers and styles.
  */
-export default function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children }: RootLayoutProps) {
+  const cookieStore = await cookies();
+  const initialLanguage = resolveLanguage(
+    cookieStore.get(languageCookieName)?.value ?? defaultLanguage,
+  );
+  const dictionary = translations[initialLanguage];
+
   return (
-    <html lang="es">
+    <html lang={initialLanguage}>
       <body className={cn("app-shell", bodyFont.variable, displayFont.variable)}>
-        <AppProviders>
+        <AppProviders initialLanguage={initialLanguage}>
           <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-4 pb-8 sm:px-6 lg:px-8">
             <SiteNavigation />
             <div className="flex-1">{children}</div>
@@ -91,21 +104,20 @@ export default function RootLayout({ children }: RootLayoutProps) {
                   <div>
                     <p className="section-eyebrow">{siteConfig.name}</p>
                     <p className="font-display text-lg font-semibold tracking-tight text-white">
-                      Production-grade demo surface
+                      {dictionary.footerProductionSurface}
                     </p>
                   </div>
                 </div>
 
                 <p className="max-w-2xl text-sm leading-6 text-slate-300/72">
-                  A refined interface for wallet auth, on-chain commitment creation, AI
-                  verification, appeals, and settlement on Avalanche Fuji.
+                  {dictionary.footerDescription}
                 </p>
 
-                <p className="text-sm text-slate-400">Built by Santiago D&apos;Andrea</p>
+                <p className="text-sm text-slate-400">{dictionary.footerBuiltBy}</p>
               </div>
 
               <div
-                aria-label="Community links"
+                aria-label={dictionary.communityLinks}
                 className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 border-t border-white/8 pt-5"
               >
                 <a

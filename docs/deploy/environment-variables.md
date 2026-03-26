@@ -50,8 +50,8 @@ Siguen yendo en el proyecto `backend`, aunque no son credenciales.
   Origin permitido por CORS.
   Puede ser una sola URL o una lista separada por comas.
   Ejemplos validos:
-  `https://timelend-frontend.vercel.app`
-  `https://timelend-frontend.vercel.app,https://timelend-frontend-git-main-esqui.vercel.app`
+  `https://time-lend.vercel.app`
+  `https://time-lend-frontend.vercel.app,https://time-lend.vercel.app`
 - `RPC_URL`
   RPC de Avalanche Fuji usado por ethers.
 - `TIME_LEND_CONTRACT_ADDRESS`

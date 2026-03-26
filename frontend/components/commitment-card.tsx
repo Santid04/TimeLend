@@ -22,9 +22,31 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { formatDateOnly } from "@/lib/commitment-utils";
-import { formatCommitmentStatus, formatShortAddress } from "@/lib/utils";
+import { formatShortAddress } from "@/lib/utils";
 import type { ApiCommitment, ApiEvidence, EvidenceSubmissionInput } from "@/types/frontend";
+
+type CardActionKey =
+  | "actionAppeal"
+  | "actionAppealEvidenceUpload"
+  | "actionAppealResolution"
+  | "actionEvidenceUpload"
+  | "actionFailedFinalization"
+  | "actionVerification";
+
+type CardMessage =
+  | {
+      tone: "error";
+      type: "raw";
+      value: string;
+    }
+  | {
+      actionKey: CardActionKey;
+      messageKey: "actionCompleted" | "actionFailed";
+      tone: "error" | "success";
+      type: "action";
+    };
 
 type CommitmentCardProps = {
   commitment: ApiCommitment;
@@ -35,27 +57,32 @@ type CommitmentCardProps = {
   onVerify: (commitmentId: string) => Promise<void>;
 };
 
-function describeEvidenceEntry(evidence: ApiEvidence | null) {
+function describeEvidenceEntry(
+  evidence: ApiEvidence | null,
+  t: ReturnType<typeof useTranslation>["t"],
+) {
   if (evidence === null) {
-    return "None submitted yet";
+    return t("noneSubmittedYet");
   }
 
   const hasFile = evidence.originalFileName !== null;
   const hasWrittenEvidence = evidence.submittedText !== null && evidence.submittedText.length > 0;
 
   if (hasFile && hasWrittenEvidence) {
-    return `${evidence.originalFileName} + written evidence`;
+    return t("fileAndWrittenEvidence", {
+      file: evidence.originalFileName ?? t("fileEvidence"),
+    });
   }
 
   if (hasFile) {
-    return evidence.originalFileName ?? "File evidence";
+    return evidence.originalFileName ?? t("fileEvidence");
   }
 
   if (hasWrittenEvidence) {
-    return "Written evidence";
+    return t("writtenEvidence");
   }
 
-  return "Evidence submitted";
+  return t("evidenceSubmitted");
 }
 
 function getAppealEvidenceCutoff(commitment: ApiCommitment) {
@@ -69,23 +96,26 @@ function getAppealEvidenceCutoff(commitment: ApiCommitment) {
   return new Date(appealRecordedEvent.createdAt).getTime();
 }
 
-function getCommitmentSummaryStatus(commitment: ApiCommitment) {
+function getCommitmentSummaryStatus(
+  commitment: ApiCommitment,
+  t: ReturnType<typeof useTranslation>["t"],
+) {
   if (commitment.status === "COMPLETED") {
     return {
-      label: "Completed",
+      label: t("summaryCompleted"),
       status: "COMPLETED" as const,
     };
   }
 
   if (commitment.status === "FAILED_FINAL") {
     return {
-      label: "Failed",
+      label: t("summaryFailed"),
       status: "FAILED_FINAL" as const,
     };
   }
 
   return {
-    label: "Pending",
+    label: t("summaryPending"),
     status: "ACTIVE" as const,
   };
 }
@@ -120,13 +150,12 @@ export function CommitmentCard({
   onUploadEvidence,
   onVerify,
 }: CommitmentCardProps) {
+  const { t, translateFrontendMessage, translateStatus } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [textEvidence, setTextEvidence] = useState("");
-  const [cardMessage, setCardMessage] = useState<{ tone: "error" | "success"; value: string } | null>(
-    null,
-  );
-  const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [cardMessage, setCardMessage] = useState<CardMessage | null>(null);
+  const [activeAction, setActiveAction] = useState<CardActionKey | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
   const latestVerification = commitment.verifications[0] ?? null;
   const latestEvidence = commitment.evidences[0] ?? null;
@@ -175,36 +204,48 @@ export function CommitmentCard({
   const appealHint =
     commitment.status === "FAILED_PENDING_APPEAL" && !commitment.appealed
       ? !appealAllowedByConfidence
-        ? "Appeal is disabled because the failed verification was considered clear with confidence >= 0.6."
-        : "Consume the appeal action to unlock new evidence submission for review."
+        ? t("appealDisabledHint")
+        : t("appealUnlockHint")
       : isAppealEvidenceStage && latestAppealEvidence === null
-        ? "Upload appeal evidence or provide more explicit proof. The appeal will resolve immediately after submission."
+        ? t("appealUploadHint")
         : null;
   const evidenceLockMessage = isFinalState
-    ? "Evidence is locked because this commitment already reached a final state."
+    ? t("evidenceLockedFinalState")
     : commitment.isProcessing
-      ? "Evidence is temporarily locked while this commitment is processing."
+      ? t("evidenceLockedProcessing")
       : commitment.status === "FAILED_PENDING_APPEAL" && !commitment.appealed
-        ? "Appeal this commitment first to unlock appeal evidence submission."
+        ? t("evidenceLockedAppeal")
         : null;
-  const summaryStatus = getCommitmentSummaryStatus(commitment);
+  const summaryStatus = getCommitmentSummaryStatus(commitment, t);
   const expandableSectionId = `commitment-details-${commitment.id}`;
 
-  async function runCardAction(label: string, action: () => Promise<void>) {
-    setActiveAction(label);
+  async function runCardAction(actionKey: CardActionKey, action: () => Promise<void>) {
+    setActiveAction(actionKey);
     setCardMessage(null);
 
     try {
       await action();
       setCardMessage({
+        actionKey,
+        messageKey: "actionCompleted",
         tone: "success",
-        value: `${label} completed.`,
+        type: "action",
       });
     } catch (error) {
-      setCardMessage({
-        tone: "error",
-        value: error instanceof Error ? error.message : `${label} failed.`,
-      });
+      if (error instanceof Error) {
+        setCardMessage({
+          tone: "error",
+          type: "raw",
+          value: error.message,
+        });
+      } else {
+        setCardMessage({
+          actionKey,
+          messageKey: "actionFailed",
+          tone: "error",
+          type: "action",
+        });
+      }
     } finally {
       setActiveAction(null);
     }
@@ -226,17 +267,26 @@ export function CommitmentCard({
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0 space-y-3">
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">Commitment #{commitment.onchainId}</Badge>
-              <Badge variant="outline">{commitment.appealed ? "Appealed flow" : "Standard flow"}</Badge>
-              {commitment.isProcessing ? <Badge variant="default">Processing</Badge> : null}
+              <Badge variant="secondary">
+                {t("commitmentBadge", { id: commitment.onchainId })}
+              </Badge>
+              <Badge variant="outline">
+                {commitment.appealed ? t("appealedFlow") : t("standardFlow")}
+              </Badge>
+              {commitment.isProcessing ? <Badge variant="default">{t("processing")}</Badge> : null}
             </div>
             <div className="space-y-2">
               <h3 className="font-display text-xl font-semibold tracking-tight text-white">
                 {commitment.title}
               </h3>
               <p className="text-sm leading-6 text-slate-300/72">
-                Deadline {formatDateOnly(commitment.deadline)}. Evidence {commitment.evidences.length}.
-                Latest verification {latestVerification ? "available" : "pending"}.
+                {t("deadlineEvidenceSummary", {
+                  count: commitment.evidences.length,
+                  deadline: formatDateOnly(commitment.deadline),
+                  verification: latestVerification
+                    ? t("latestVerificationAvailable")
+                    : t("latestVerificationPending"),
+                })}
               </p>
             </div>
           </div>
@@ -244,7 +294,7 @@ export function CommitmentCard({
           <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <div className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                Stake
+                {t("stake")}
               </p>
               <p className="mt-2 text-base font-semibold text-white">
                 {formatEther(BigInt(commitment.amount))} AVAX
@@ -252,11 +302,11 @@ export function CommitmentCard({
             </div>
             <div className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                State
+                {t("state")}
               </p>
               <div className="mt-2 flex items-center gap-3">
                 <StatusBadge label={summaryStatus.label} status={summaryStatus.status} />
-                <Badge variant="outline">{formatCommitmentStatus(commitment.status)}</Badge>
+                <Badge variant="outline">{translateStatus(commitment.status)}</Badge>
               </div>
             </div>
             <div className="flex size-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-slate-300 transition-transform group-hover:border-white/16 group-hover:text-white">
@@ -278,77 +328,77 @@ export function CommitmentCard({
             <div className="border-t border-white/8 px-5 pb-5 pt-5 sm:px-6 sm:pb-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Deadline</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{t("deadline")}</p>
                   <p className="mt-2 text-base font-semibold text-white">{formatDateOnly(commitment.deadline)}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                    Appeal window: {formatDateOnly(commitment.appealWindowEndsAt)}
+                    {t("appealWindow", { date: formatDateOnly(commitment.appealWindowEndsAt) })}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Evidence</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{t("evidence")}</p>
                   <p className="mt-2 text-base font-semibold text-white">
-                    {commitment.evidences.length} entries
+                    {t("evidenceEntries", { count: commitment.evidences.length })}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                    Latest: {describeEvidenceEntry(latestEvidence)}
+                    {t("latestValue", { value: describeEvidenceEntry(latestEvidence, t) })}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Fail receiver</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{t("failureReceiver")}</p>
                   <p className="mt-2 break-all text-base font-semibold text-white">
                     {formatShortAddress(commitment.failReceiver, 8, 5)}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                    Full address available in the detail panel below.
+                    {t("fullAddressAvailable")}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Current status</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{t("currentStatus")}</p>
                   <p className="mt-2 text-base font-semibold text-white">
-                    {commitment.isProcessing ? "Processing" : formatCommitmentStatus(commitment.status)}
+                    {commitment.isProcessing ? t("processing") : translateStatus(commitment.status)}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                    Updated {formatDateOnly(commitment.updatedAt)}
+                    {t("updatedAt", { date: formatDateOnly(commitment.updatedAt) })}
                   </p>
                 </div>
               </div>
 
               <div className="mt-5 grid gap-5 xl:grid-cols-2 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                 <div className="space-y-5">
-                  <DetailCard icon={FileText} title="Description">
+                  <DetailCard icon={FileText} title={t("detailDescription")}>
                     <p className="whitespace-pre-wrap">{commitment.description}</p>
                   </DetailCard>
 
-                  <DetailCard icon={Bot} title="Latest verification">
+                  <DetailCard icon={Bot} title={t("latestVerificationTitle")}>
                     {latestVerification !== null ? (
                       <>
                         <div className="flex flex-wrap gap-2">
                           <Badge variant={latestVerification.result ? "success" : "destructive"}>
-                            {latestVerification.result ? "Success" : "Fail"}
+                            {latestVerification.result ? t("verificationSuccess") : t("verificationFail")}
                           </Badge>
                           <Badge variant="outline">
-                            Confidence {latestVerification.confidence.toFixed(2)}
+                            {t("confidence", { value: latestVerification.confidence.toFixed(2) })}
                           </Badge>
                           <Badge variant="secondary">{latestVerification.type}</Badge>
                         </div>
                         <p>{latestVerification.reasoning}</p>
                       </>
                     ) : (
-                      <p>No verification has been stored for this commitment yet.</p>
+                      <p>{t("noVerificationStored")}</p>
                     )}
                   </DetailCard>
 
                   <DetailCard
                     icon={isAppealEvidenceStage ? MessageSquareText : UploadCloud}
-                    title={isAppealEvidenceStage ? "Appeal evidence" : "Submitted evidence"}
+                    title={isAppealEvidenceStage ? t("appealEvidence") : t("submittedEvidence")}
                   >
                     {latestEvidence === null ? (
-                      <p>No submitted evidence has been stored for this commitment yet.</p>
+                      <p>{t("noEvidenceStored")}</p>
                     ) : (
                       <>
-                        <p>Latest entry: {describeEvidenceEntry(latestEvidence)}</p>
+                        <p>{t("latestEntry", { value: describeEvidenceEntry(latestEvidence, t) })}</p>
                         {latestEvidence.originalFileName !== null ? (
-                          <p>File: {latestEvidence.originalFileName}</p>
+                          <p>{t("fileLabel", { name: latestEvidence.originalFileName })}</p>
                         ) : null}
                         {latestEvidence.submittedText !== null &&
                         latestEvidence.submittedText.trim().length > 0 ? (
@@ -365,7 +415,7 @@ export function CommitmentCard({
                           <AlertTriangle className="size-4" />
                         </div>
                         <p className="font-semibold text-amber-50">
-                          {isAppealEvidenceStage ? "Appeal evidence" : "Appeal policy"}
+                          {isAppealEvidenceStage ? t("appealEvidenceNotice") : t("appealPolicy")}
                         </p>
                       </div>
                       <p className="text-sm leading-6 text-amber-50/84">{appealHint}</p>
@@ -380,12 +430,12 @@ export function CommitmentCard({
                         </div>
                         <div>
                           <p className="font-semibold text-white">
-                            {isAppealEvidenceStage ? "Submit appeal evidence" : "Submit evidence"}
+                            {isAppealEvidenceStage ? t("submitAppealEvidence") : t("submitEvidence")}
                           </p>
                           <p className="mt-1 text-sm leading-6 text-slate-300/72">
                             {isAppealEvidenceStage
-                              ? "Upload fresh evidence or written proof. Submission triggers the appeal review immediately."
-                              : "Upload a file, add written proof, or combine both before verification."}
+                              ? t("submitAppealEvidenceDesc")
+                              : t("submitEvidenceDesc")}
                           </p>
                         </div>
                       </div>
@@ -393,7 +443,7 @@ export function CommitmentCard({
                       <div className="grid gap-4">
                         <label className="grid gap-2">
                           <span className="text-sm font-medium text-slate-200">
-                            {isAppealEvidenceStage ? "Appeal file" : "Evidence file"}
+                            {isAppealEvidenceStage ? t("appealFile") : t("evidenceFile")}
                           </span>
                           <Input
                             accept=".pdf,.txt,text/plain,application/pdf"
@@ -409,15 +459,15 @@ export function CommitmentCard({
 
                         <label className="grid gap-2">
                           <span className="text-sm font-medium text-slate-200">
-                            {isAppealEvidenceStage ? "Appeal explanation" : "Written evidence"}
+                            {isAppealEvidenceStage ? t("appealExplanation") : t("writtenEvidenceLabel")}
                           </span>
                           <Textarea
                             disabled={activeAction !== null}
                             onChange={(event) => setTextEvidence(event.target.value)}
                             placeholder={
                               isAppealEvidenceStage
-                                ? "Explain why the previous failure should be reconsidered."
-                                : "Describe the proof you want the verifier to consider."
+                                ? t("appealExplanationPlaceholder")
+                                : t("writtenEvidencePlaceholder")
                             }
                             rows={4}
                             value={textEvidence}
@@ -432,7 +482,9 @@ export function CommitmentCard({
                             }
                             onClick={() =>
                               void runCardAction(
-                                isAppealEvidenceStage ? "Appeal evidence upload" : "Evidence upload",
+                                isAppealEvidenceStage
+                                  ? "actionAppealEvidenceUpload"
+                                  : "actionEvidenceUpload",
                                 async () => {
                                   const trimmedTextEvidence = textEvidence.trim();
 
@@ -457,16 +509,18 @@ export function CommitmentCard({
                             }
                             type="button"
                           >
-                            {activeAction === "Evidence upload" || activeAction === "Appeal evidence upload" ? (
+                            {activeAction === "actionEvidenceUpload" ||
+                            activeAction === "actionAppealEvidenceUpload" ? (
                               <Loader2 className="animate-spin" />
                             ) : (
                               <UploadCloud />
                             )}
-                            {activeAction === "Evidence upload" || activeAction === "Appeal evidence upload"
-                              ? "Uploading..."
+                            {activeAction === "actionEvidenceUpload" ||
+                            activeAction === "actionAppealEvidenceUpload"
+                              ? t("uploading")
                               : isAppealEvidenceStage
-                                ? "Submit appeal evidence"
-                                : "Submit evidence"}
+                                ? t("submitAppealEvidence")
+                                : t("submitEvidence")}
                           </Button>
                         </div>
                       </div>
@@ -478,7 +532,7 @@ export function CommitmentCard({
                           <UploadCloud className="size-4" />
                         </div>
                         <p className="font-semibold text-white">
-                          {isAppealEvidenceStage ? "Appeal evidence" : "Evidence"}
+                          {isAppealEvidenceStage ? t("appealEvidence") : t("evidence")}
                         </p>
                       </div>
                       <p className="text-sm leading-6 text-slate-300/72">{evidenceLockMessage}</p>
@@ -493,10 +547,9 @@ export function CommitmentCard({
                         <Gavel className="size-4" />
                       </div>
                       <div>
-                        <p className="font-semibold text-white">Action center</p>
+                        <p className="font-semibold text-white">{t("actionCenter")}</p>
                         <p className="mt-1 text-sm leading-6 text-slate-300/72">
-                          Every button below keeps the same backend and contract behavior currently wired
-                          into the app.
+                          {t("actionCenterDesc")}
                         </p>
                       </div>
                     </div>
@@ -505,60 +558,60 @@ export function CommitmentCard({
                       <Button
                         className="w-full justify-start"
                         disabled={!canVerify || activeAction !== null}
-                        onClick={() => void runCardAction("Verification", () => onVerify(commitment.id))}
+                        onClick={() => void runCardAction("actionVerification", () => onVerify(commitment.id))}
                         size="lg"
                         type="button"
                       >
-                        {activeAction === "Verification" ? <Loader2 className="animate-spin" /> : <Bot />}
-                        {activeAction === "Verification" ? "Queueing..." : "Verify commitment"}
+                        {activeAction === "actionVerification" ? <Loader2 className="animate-spin" /> : <Bot />}
+                        {activeAction === "actionVerification" ? t("queueing") : t("verifyCommitment")}
                       </Button>
 
                       <Button
                         className="w-full justify-start"
                         disabled={!canAppeal || activeAction !== null}
-                        onClick={() => void runCardAction("Appeal", () => onAppeal(commitment))}
+                        onClick={() => void runCardAction("actionAppeal", () => onAppeal(commitment))}
                         size="lg"
                         type="button"
                         variant="warning"
                       >
-                        {activeAction === "Appeal" ? <Loader2 className="animate-spin" /> : <ArrowRightLeft />}
-                        {activeAction === "Appeal" ? "Appealing..." : "Open appeal"}
+                        {activeAction === "actionAppeal" ? <Loader2 className="animate-spin" /> : <ArrowRightLeft />}
+                        {activeAction === "actionAppeal" ? t("appealing") : t("openAppeal")}
                       </Button>
 
                       <Button
                         className="w-full justify-start"
                         disabled={!canResolveAppeal || activeAction !== null}
                         onClick={() =>
-                          void runCardAction("Appeal resolution", () => onResolveAppeal(commitment.id))
+                          void runCardAction("actionAppealResolution", () => onResolveAppeal(commitment.id))
                         }
                         size="lg"
                         type="button"
                         variant="secondary"
                       >
-                        {activeAction === "Appeal resolution" ? (
+                        {activeAction === "actionAppealResolution" ? (
                           <Loader2 className="animate-spin" />
                         ) : (
                           <MessageSquareText />
                         )}
-                        {activeAction === "Appeal resolution" ? "Queueing..." : "Resolve appeal"}
+                        {activeAction === "actionAppealResolution" ? t("queueing") : t("resolveAppeal")}
                       </Button>
 
                       <Button
                         className="w-full justify-start"
                         disabled={!canFinalize || activeAction !== null}
                         onClick={() =>
-                          void runCardAction("Failed finalization", () => onFinalize(commitment.id))
+                          void runCardAction("actionFailedFinalization", () => onFinalize(commitment.id))
                         }
                         size="lg"
                         type="button"
                         variant="destructive"
                       >
-                        {activeAction === "Failed finalization" ? (
+                        {activeAction === "actionFailedFinalization" ? (
                           <Loader2 className="animate-spin" />
                         ) : (
                           <AlertTriangle />
                         )}
-                        {activeAction === "Failed finalization" ? "Finalizing..." : "Finalize failed"}
+                        {activeAction === "actionFailedFinalization" ? t("finalizing") : t("finalizeFailed")}
                       </Button>
                     </div>
                   </div>
@@ -568,26 +621,26 @@ export function CommitmentCard({
                       <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-slate-100">
                         <Wallet className="size-4" />
                       </div>
-                      <p className="font-semibold text-white">Commitment metadata</p>
+                      <p className="font-semibold text-white">{t("commitmentMetadata")}</p>
                     </div>
 
                     <div className="space-y-4 text-sm">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">On-chain id</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t("onChainId")}</p>
                         <p className="mt-2 font-semibold text-white">{commitment.onchainId}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Owner</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t("owner")}</p>
                         <p className="mt-2 break-all font-semibold text-white">
                           {formatShortAddress(commitment.userWalletAddress, 8, 5)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Fail receiver</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t("failureReceiver")}</p>
                         <p className="mt-2 break-all font-semibold text-white">{commitment.failReceiver}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Last update</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t("lastUpdate")}</p>
                         <p className="mt-2 font-semibold text-white">{formatDateOnly(commitment.updatedAt)}</p>
                       </div>
                     </div>
@@ -601,7 +654,9 @@ export function CommitmentCard({
                           : "border border-rose-300/18 bg-rose-400/[0.08] text-rose-100"
                       }`}
                     >
-                      {cardMessage.value}
+                      {cardMessage.type === "raw"
+                        ? translateFrontendMessage(cardMessage.value)
+                        : t(cardMessage.messageKey, { label: t(cardMessage.actionKey) })}
                     </div>
                   ) : null}
                 </div>

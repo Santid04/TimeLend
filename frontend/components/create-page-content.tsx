@@ -15,6 +15,8 @@ import {
   getFailReceiverValidationError,
   resolveEffectiveFailReceiver,
 } from "@/lib/commitment-utils";
+import { useTranslation } from "@/lib/i18n/useTranslation";
+import type { TranslationKey, TranslationValues } from "@/lib/i18n/translations";
 import { useTimeLendWalletActions } from "@/hooks/use-timelend-wallet-actions";
 import { useWalletSession } from "@/hooks/use-wallet-session";
 import { createCommitmentRecord } from "@/services/timelend-api";
@@ -26,10 +28,16 @@ const reveal = {
   visible: { opacity: 1, y: 0 },
 };
 
+type TranslatedPageMessage = {
+  key: TranslationKey;
+  values?: TranslationValues;
+};
+
 export function CreatePageContent() {
+  const { t, translateFrontendMessage } = useTranslation();
   const { address, isAuthenticated, isOnSupportedChain, session } = useWalletSession();
   const { createCommitmentWithWallet, walletReady } = useTimeLendWalletActions();
-  const [pageMessage, setPageMessage] = useState<string | null>(null);
+  const [pageMessage, setPageMessage] = useState<TranslatedPageMessage | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -83,11 +91,15 @@ export function CreatePageContent() {
         title: values.title.trim(),
       });
 
-      setPageMessage(
-        `Commitment created successfully. On-chain id: ${onChainCommitment.onchainId}. Fail receiver: ${effectiveFailReceiver}.`,
-      );
+      setPageMessage({
+        key: "createSuccessMessage",
+        values: {
+          id: onChainCommitment.onchainId,
+          receiver: effectiveFailReceiver,
+        },
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to create the commitment.";
+      const message = error instanceof Error ? error.message : t("unableToCreateCommitment");
       setCreateError(message);
       throw error;
     } finally {
@@ -101,30 +113,29 @@ export function CreatePageContent() {
         animate="visible"
         className="glass-noise overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,42,0.92),rgba(8,12,24,0.82))] px-6 py-7 shadow-[0_30px_100px_-36px_rgba(2,6,23,0.96)] backdrop-blur-xl sm:px-8 sm:py-8"
         initial="hidden"
-        variants={reveal}
+          variants={reveal}
       >
         <div className="space-y-8">
           <div className="space-y-5">
-            <Badge variant="secondary">Create commitment</Badge>
+            <Badge variant="secondary">{t("createPageBadge")}</Badge>
             <h1 className="max-w-none font-display text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">
-              Publish the escrow and goal with a guided, onboarding-style flow.
+              {t("createPageTitle")}
             </h1>
             <p className="max-w-4xl text-base leading-7 text-slate-300/78 sm:text-lg">
-              This page keeps the exact same creation logic, but now the form is split into clearer
-              steps, supported by a live review panel and more consistent product-level hierarchy.
+              {t("createPageDescription")}
             </p>
 
             <div className="flex flex-wrap gap-3">
               <Button asChild variant="secondary">
                 <Link href="/">
                   <ArrowRight className="rotate-180" />
-                  Back home
+                  {t("backHome")}
                 </Link>
               </Button>
               <Button asChild>
                 <Link href="/dashboard">
                   <LayoutDashboard />
-                  Open dashboard
+                  {t("openDashboard")}
                 </Link>
               </Button>
             </div>
@@ -132,30 +143,30 @@ export function CreatePageContent() {
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              helper="Authenticate from Home before publishing the escrow."
+              helper={t("createMetricWalletHelper")}
               icon={Wallet}
-              label="Wallet"
+              label={t("metricWallet")}
               tone="accent"
-              value={formatShortAddress(address, 8, 5)}
+              value={translateFrontendMessage(formatShortAddress(address, 8, 5))}
             />
             <MetricCard
-              helper="This route is dedicated to the publication step only."
+              helper={t("createMetricFlowHelper")}
               icon={Workflow}
-              label="Flow"
+              label={t("createMetricFlow")}
               tone="neutral"
-              value="Create only"
+              value={t("createMetricFlowValue")}
             />
             <MetricCard
-              helper="After publishing, use the dashboard for evidence and verification."
+              helper={t("createMetricNextStopHelper")}
               icon={LayoutDashboard}
-              label="Next stop"
+              label={t("nextStop")}
               tone="success"
-              value="Dashboard"
+              value={t("routeDashboard")}
             />
             <MetricCard
-              helper="Deadlines remain date-only in the interface, just with better guidance."
+              helper={t("createMetricDeadlineHelper")}
               icon={CalendarClock}
-              label="Deadline"
+              label={t("deadline")}
               tone="warning"
               value="dd/mm/yyyy"
             />
@@ -172,12 +183,9 @@ export function CreatePageContent() {
         >
           <Card className="overflow-hidden rounded-2xl border-amber-300/16 bg-[linear-gradient(180deg,rgba(56,38,16,0.86),rgba(21,14,7,0.8))]">
             <CardHeader className="space-y-3">
-              <Badge variant="warning">Wallet gate</Badge>
-              <CardTitle className="text-2xl">Connect and authenticate on Home first</CardTitle>
-              <CardDescription>
-                Create logic is unchanged, but this route assumes the wallet is already connected,
-                signed in, and on Avalanche Fuji.
-              </CardDescription>
+              <Badge variant="warning">{t("walletGate")}</Badge>
+              <CardTitle className="text-2xl">{t("connectAndAuthenticateOnHomeFirst")}</CardTitle>
+              <CardDescription>{t("createGateDescription")}</CardDescription>
             </CardHeader>
           </Card>
         </motion.section>
@@ -191,29 +199,29 @@ export function CreatePageContent() {
       >
         <Card className="overflow-hidden rounded-2xl">
           <CardHeader className="space-y-3">
-            <Badge variant="outline">Before you submit</Badge>
-            <CardTitle className="text-2xl">Three quick checks before publishing</CardTitle>
+            <Badge variant="outline">{t("beforeYouSubmit")}</Badge>
+            <CardTitle className="text-2xl">{t("threeQuickChecks")}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">01</p>
-              <p className="mt-3 text-base font-semibold text-white">Wallet authenticated</p>
+              <p className="mt-3 text-base font-semibold text-white">{t("walletAuthenticated")}</p>
               <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                Connect and sign on Home before returning to this page.
+                {t("walletAuthenticatedDesc")}
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">02</p>
-              <p className="mt-3 text-base font-semibold text-white">Fuji selected</p>
+              <p className="mt-3 text-base font-semibold text-white">{t("fujiSelected")}</p>
               <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                Contract creation still requires Avalanche Fuji exactly as before.
+                {t("fujiSelectedDesc")}
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">03</p>
-              <p className="mt-3 text-base font-semibold text-white">Dashboard next</p>
+              <p className="mt-3 text-base font-semibold text-white">{t("dashboardNext")}</p>
               <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                After publish, use the dashboard to upload evidence and operate the rest of the flow.
+                {t("dashboardNextDesc")}
               </p>
             </div>
           </CardContent>
@@ -222,12 +230,12 @@ export function CreatePageContent() {
 
       {createError !== null ? (
         <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
-          {createError}
+          {translateFrontendMessage(createError)}
         </div>
       ) : null}
       {pageMessage !== null ? (
         <div className="rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.08] p-4 text-sm text-emerald-100">
-          {pageMessage}
+          {t(pageMessage.key, pageMessage.values)}
         </div>
       ) : null}
 

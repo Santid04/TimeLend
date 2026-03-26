@@ -10,10 +10,13 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { WagmiProvider } from "wagmi";
 
+import { LanguageProvider } from "@/lib/i18n/provider";
+import type { Language } from "@/lib/i18n/translations";
 import { wagmiConfig } from "@/lib/wagmi";
 
 type AppProvidersProps = {
   children: ReactNode;
+  initialLanguage: Language;
 };
 
 /**
@@ -22,12 +25,14 @@ type AppProvidersProps = {
  * It returns the provider-wrapped React subtree.
  * It is important because wallet state and async query state must survive normal client rerenders.
  */
-export function AppProviders({ children }: AppProvidersProps) {
+export function AppProviders({ children, initialLanguage }: AppProvidersProps) {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
     <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <LanguageProvider initialLanguage={initialLanguage}>{children}</LanguageProvider>
+      </QueryClientProvider>
     </WagmiProvider>
   );
 }

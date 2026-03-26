@@ -1,7 +1,10 @@
+"use client";
+
 import type { CommitmentStatus } from "@/types/frontend";
 
 import { Badge } from "@/components/ui/badge";
-import { cn, formatCommitmentStatus } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n/useTranslation";
+import { cn } from "@/lib/utils";
 
 type StatusBadgeProps = {
   className?: string;
@@ -21,12 +24,14 @@ const statusVariants = {
 } as const;
 
 export function StatusBadge({ className, label, status }: StatusBadgeProps) {
+  const { translateStatus } = useTranslation();
+
   return (
     <Badge
       className={cn("min-w-fit", className)}
       variant={statusVariants[status] ?? "secondary"}
     >
-      {label ?? formatCommitmentStatus(status)}
+      {label ?? translateStatus(status)}
     </Badge>
   );
 }

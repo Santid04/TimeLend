@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getFrontendRuntimeConfig } from "@/lib/env";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { formatShortAddress } from "@/lib/utils";
 import { useWalletSession } from "@/hooks/use-wallet-session";
 
@@ -27,6 +28,7 @@ const reveal = {
 
 export function HomePageContent() {
   const runtimeConfig = getFrontendRuntimeConfig();
+  const { t, translateFrontendMessage } = useTranslation();
   const {
     address,
     authenticateWallet,
@@ -52,71 +54,69 @@ export function HomePageContent() {
       >
         <div className="space-y-8">
           <div className="space-y-5">
-            <Badge variant="secondary">TimeLend protocol</Badge>
+            <Badge variant="secondary">{t("homeProtocolBadge")}</Badge>
             <h1 className="max-w-none font-display text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl lg:text-6xl">
-              Commit capital to a goal. Let proof and settlement do the rest.
+              {t("homeTitle")}
             </h1>
             <p className="max-w-4xl text-base leading-7 text-slate-300/78 sm:text-lg">
-              A modern Web3 surface for creating escrow-backed commitments, authenticating with your
-              wallet, and moving through AI-powered verification with less noise and better operational
-              clarity.
+              {t("homeDescription")}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <Badge variant={isConnected ? "success" : "warning"}>
-              {isConnected ? "Wallet connected" : "Wallet pending"}
+              {isConnected ? t("walletConnected") : t("walletPending")}
             </Badge>
             <Badge variant={isAuthenticated ? "success" : "warning"}>
-              {isAuthenticated ? "Backend session live" : "Signature required"}
+              {isAuthenticated ? t("backendSessionLive") : t("signatureRequired")}
             </Badge>
             <Badge variant={isOnSupportedChain ? "success" : "destructive"}>
-              {isOnSupportedChain ? "Avalanche Fuji" : "Switch network"}
+              {isOnSupportedChain ? t("avalancheFuji") : t("switchNetwork")}
             </Badge>
-            <Badge variant="outline">{connectorName ?? "No connector"}</Badge>
+            <Badge variant="outline">{connectorName ?? t("noConnector")}</Badge>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Button asChild>
               <Link href="/create">
                 <PlusCircle />
-                Create commitment
+                {t("createCommitmentAction")}
               </Link>
             </Button>
             <Button asChild variant="secondary">
               <Link href="/dashboard">
                 <LayoutDashboard />
-                Open dashboard
+                {t("openDashboard")}
               </Link>
             </Button>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              helper="Compact visibility for the connected account powering TimeLend."
+              helper={t("homeMetricWalletHelper")}
               icon={Wallet}
-              label="Wallet"
+              label={t("metricWallet")}
               tone="accent"
-              value={formatShortAddress(address, 8, 5)}
+              value={translateFrontendMessage(formatShortAddress(address, 8, 5))}
             />
             <MetricCard
-              helper={isAuthenticated ? "Protected backend routes are ready." : "Authenticate after connecting."}
+              helper={isAuthenticated ? t("homeSessionHelperReady") : t("homeSessionHelperPending")}
               icon={ShieldCheck}
-              label="Session"
+              label={t("metricSession")}
               tone={isAuthenticated ? "success" : "warning"}
-              value={isAuthenticated ? "Active" : "Pending"}
+              value={isAuthenticated ? t("statusActive") : t("pending")}
             />
             <MetricCard
-              helper="The commitment contract and appeals run on Avalanche Fuji."
+              helper={t("homeMetricNetworkHelper")}
               icon={Bot}
-              label="Network"
+              label={t("metricNetwork")}
               tone={isOnSupportedChain ? "success" : "warning"}
-              value={isOnSupportedChain ? "Avalanche Fuji" : "Switch required"}
+              value={isOnSupportedChain ? t("avalancheFuji") : t("switchRequired")}
             />
             <MetricCard
               helper={runtimeConfig.NEXT_PUBLIC_CONTRACT_ADDRESS}
               icon={ArrowUpRight}
-              label="Contract"
+              label={t("metricContract")}
               tone="neutral"
               value={formatShortAddress(runtimeConfig.NEXT_PUBLIC_CONTRACT_ADDRESS, 8, 6)}
             />
@@ -124,24 +124,24 @@ export function HomePageContent() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Step 01</p>
-              <p className="mt-3 text-base font-semibold text-white">Connect wallet</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{t("step01")}</p>
+              <p className="mt-3 text-base font-semibold text-white">{t("homeStep1Title")}</p>
               <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                Establish the wallet provider once and keep the session status visible.
+                {t("homeStep1Desc")}
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Step 02</p>
-              <p className="mt-3 text-base font-semibold text-white">Create escrow</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{t("step02")}</p>
+              <p className="mt-3 text-base font-semibold text-white">{t("homeStep2Title")}</p>
               <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                Publish the commitment, stake AVAX, and lock the failure receiver path.
+                {t("homeStep2Desc")}
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Step 03</p>
-              <p className="mt-3 text-base font-semibold text-white">Operate workflow</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{t("step03")}</p>
+              <p className="mt-3 text-base font-semibold text-white">{t("homeStep3Title")}</p>
               <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                Upload proof, verify, appeal if needed, and settle the result on-chain.
+                {t("homeStep3Desc")}
               </p>
             </div>
           </div>
@@ -180,30 +180,27 @@ export function HomePageContent() {
         >
           <Card className="glass-noise overflow-hidden rounded-2xl">
             <CardHeader className="space-y-3">
-              <Badge variant="secondary">Operational map</Badge>
-              <CardTitle className="text-2xl">A cleaner route structure</CardTitle>
-              <CardDescription>
-                Each screen now has a single job, so users spend less time parsing instructions and
-                more time progressing the workflow.
-              </CardDescription>
+              <Badge variant="secondary">{t("operationalMap")}</Badge>
+              <CardTitle className="text-2xl">{t("cleanerRouteStructure")}</CardTitle>
+              <CardDescription>{t("cleanerRouteStructureDesc")}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm font-semibold text-white">Home</p>
+                <p className="text-sm font-semibold text-white">{t("routeHome")}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                  Wallet connection, authentication, network readiness, and route entry points.
+                  {t("routeHomeDesc")}
                 </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm font-semibold text-white">Create</p>
+                <p className="text-sm font-semibold text-white">{t("routeCreate")}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                  Guided form flow for publishing the escrow-backed commitment.
+                  {t("routeCreateDesc")}
                 </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm font-semibold text-white">Dashboard</p>
+                <p className="text-sm font-semibold text-white">{t("routeDashboard")}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                  Evidence, verification, appeals, and settlement in a financial-style command view.
+                  {t("routeDashboardDesc")}
                 </p>
               </div>
             </CardContent>
@@ -211,20 +208,20 @@ export function HomePageContent() {
 
           <Card className="glass-noise overflow-hidden rounded-2xl">
             <CardHeader className="space-y-3">
-              <Badge variant="outline">Why this feels lighter</Badge>
-              <CardTitle className="text-2xl">Visual hierarchy over raw text</CardTitle>
+              <Badge variant="outline">{t("whyLighter")}</Badge>
+              <CardTitle className="text-2xl">{t("visualHierarchy")}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm font-semibold text-white">Status-first cards</p>
+                <p className="text-sm font-semibold text-white">{t("statusFirstCards")}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                  Critical readiness states stay visible with badges, tones, and grouped actions.
+                  {t("statusFirstCardsDesc")}
                 </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm font-semibold text-white">Fewer dense paragraphs</p>
+                <p className="text-sm font-semibold text-white">{t("fewerDenseParagraphs")}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300/72">
-                  Content is split into smaller panels, each with a single job and faster scan path.
+                  {t("fewerDenseParagraphsDesc")}
                 </p>
               </div>
             </CardContent>

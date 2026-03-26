@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { formatShortAddress } from "@/lib/utils";
 
 type WalletSessionPanelProps = {
@@ -45,26 +46,25 @@ export function WalletSessionPanel({
   onSwitchChain,
   sessionError,
 }: WalletSessionPanelProps) {
+  const { t, translateFrontendMessage } = useTranslation();
+
   return (
     <Card className="glass-noise overflow-hidden rounded-2xl">
       <CardHeader className="flex flex-col gap-5 border-b border-white/8 pb-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-3">
-          <Badge variant="secondary">Wallet control</Badge>
+          <Badge variant="secondary">{t("walletControl")}</Badge>
           <div className="space-y-2">
-            <CardTitle className="text-2xl sm:text-3xl">Connect, sign, and get ready to operate</CardTitle>
-            <CardDescription className="max-w-2xl text-sm sm:text-base">
-              Keep the full wallet state on Home, then move into create and dashboard flows once the
-              session is live.
-            </CardDescription>
+            <CardTitle className="text-2xl sm:text-3xl">{t("walletPanelTitle")}</CardTitle>
+            <CardDescription className="max-w-2xl text-sm sm:text-base">{t("walletPanelDescription")}</CardDescription>
           </div>
         </div>
 
         {isAuthenticated ? (
-          <StatusBadge label="Session live" status="AUTHENTICATED" />
+          <StatusBadge label={t("sessionLive")} status="AUTHENTICATED" />
         ) : isConnected ? (
-          <Badge variant="warning">Authentication pending</Badge>
+          <Badge variant="warning">{t("authenticationPending")}</Badge>
         ) : (
-          <Badge variant="secondary">Wallet disconnected</Badge>
+          <Badge variant="secondary">{t("walletDisconnected")}</Badge>
         )}
       </CardHeader>
 
@@ -76,15 +76,15 @@ export function WalletSessionPanel({
                 <PlugZap className="size-5" />
               </div>
               <Badge variant={isConnected ? "success" : "warning"}>
-                {isConnected ? "Connected" : "Pending"}
+                {isConnected ? t("connected") : t("pending")}
               </Badge>
             </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Connection</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{t("connection")}</p>
             <p className="mt-2 text-lg font-semibold text-white">
-              {connectorName ?? "No connector selected"}
+              {connectorName ?? t("noConnectorSelected")}
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-300/72">
-              {isConnected ? "Wallet provider is attached to TimeLend." : "Connect a wallet to start."}
+              {isConnected ? t("walletProviderAttached") : t("connectWalletToStart")}
             </p>
           </div>
 
@@ -94,15 +94,15 @@ export function WalletSessionPanel({
                 <ShieldCheck className="size-5" />
               </div>
               <Badge variant={isAuthenticated ? "success" : "warning"}>
-                {isAuthenticated ? "Authenticated" : "Signature needed"}
+                {isAuthenticated ? t("authenticated") : t("signatureNeeded")}
               </Badge>
             </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Backend session</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{t("backendSession")}</p>
             <p className="mt-2 text-lg font-semibold text-white">
-              {isAuthenticated ? "Protected routes unlocked" : "Waiting for wallet signature"}
+              {isAuthenticated ? t("protectedRoutesUnlocked") : t("waitingForWalletSignature")}
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-300/72">
-              JWT session powers create, verify, appeal, and settlement requests.
+              {t("backendSessionHelper")}
             </p>
           </div>
 
@@ -112,17 +112,17 @@ export function WalletSessionPanel({
                 <ArrowRightLeft className="size-5" />
               </div>
               {isOnSupportedChain ? (
-                <StatusBadge label="Fuji ready" status="CONNECTED" />
+                <StatusBadge label={t("fujiReady")} status="CONNECTED" />
               ) : (
-                <StatusBadge label="Wrong network" status="UNSUPPORTED" />
+                <StatusBadge label={t("wrongNetwork")} status="UNSUPPORTED" />
               )}
             </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Network</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{t("network")}</p>
             <p className="mt-2 text-lg font-semibold text-white">
-              {isOnSupportedChain ? "Avalanche Fuji" : "Switch required"}
+              {isOnSupportedChain ? t("avalancheFuji") : t("switchRequired")}
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-300/72">
-              Contract creation and appeal settlement stay on Avalanche Fuji.
+              {t("networkHelper")}
             </p>
           </div>
         </div>
@@ -131,14 +131,14 @@ export function WalletSessionPanel({
           {!isConnected ? (
             <Button disabled={isConnecting} onClick={() => void onConnect()} size="lg" type="button">
               {isConnecting ? <Loader2 className="animate-spin" /> : <Wallet />}
-              {isConnecting ? "Connecting..." : "Connect wallet"}
+              {isConnecting ? t("connecting") : t("connectWallet")}
             </Button>
           ) : (
             <>
               {!isOnSupportedChain ? (
                 <Button onClick={() => void onSwitchChain()} size="lg" type="button" variant="warning">
                   <ArrowRightLeft />
-                  Switch to Fuji
+                  {t("switchToFuji")}
                 </Button>
               ) : null}
 
@@ -150,13 +150,13 @@ export function WalletSessionPanel({
                   type="button"
                 >
                   {isAuthenticating ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
-                  {isAuthenticating ? "Signing..." : "Authenticate"}
+                  {isAuthenticating ? t("signing") : t("authenticate")}
                 </Button>
               ) : null}
 
               <Button onClick={onDisconnect} size="lg" type="button" variant="secondary">
                 <Unplug />
-                Disconnect
+                {t("disconnect")}
               </Button>
             </>
           )}
@@ -171,39 +171,39 @@ export function WalletSessionPanel({
                 <Wallet className="size-5" />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Wallet address</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">{t("walletAddress")}</p>
               </div>
             </div>
 
             <div className="mt-4 rounded-xl border border-white/8 bg-slate-950/36 px-4 py-3">
               <p className="break-all text-sm font-semibold text-white sm:text-base">
-                {address ?? "Waiting for connection"}
+                {address ?? t("waitingForConnection")}
               </p>
             </div>
 
             <p className="mt-4 text-sm leading-6 text-slate-300/72">
-              Quick view: {formatShortAddress(address)}. The full address stays available here while
-              the rest of the app keeps things compact.
+              {t("walletQuickView", {
+                address: translateFrontendMessage(formatShortAddress(address)),
+              })}
             </p>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">State checklist</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">{t("stateChecklist")}</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Badge variant={isConnected ? "success" : "warning"}>1. Connect</Badge>
-              <Badge variant={isOnSupportedChain ? "success" : "warning"}>2. Fuji</Badge>
-              <Badge variant={isAuthenticated ? "success" : "warning"}>3. Sign</Badge>
+              <Badge variant={isConnected ? "success" : "warning"}>{t("checklistConnect")}</Badge>
+              <Badge variant={isOnSupportedChain ? "success" : "warning"}>{t("checklistFuji")}</Badge>
+              <Badge variant={isAuthenticated ? "success" : "warning"}>{t("checklistSign")}</Badge>
             </div>
             <p className="mt-4 text-sm leading-6 text-slate-300/72">
-              Once all three are green, the create and dashboard actions use the same protected logic
-              already wired into TimeLend.
+              {t("allThreeReadyDesc")}
             </p>
           </div>
         </div>
 
         {sessionError !== null ? (
           <div className="rounded-2xl border border-rose-300/18 bg-rose-400/[0.08] p-4 text-sm text-rose-100">
-            {sessionError}
+            {translateFrontendMessage(sessionError)}
           </div>
         ) : null}
       </CardContent>

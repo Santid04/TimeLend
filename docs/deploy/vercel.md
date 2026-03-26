@@ -17,8 +17,10 @@ TimeLend se despliega como dos proyectos separados dentro del mismo repositorio:
 1. Crear un nuevo proyecto en Vercel desde este repositorio.
 2. Configurar `Root Directory = backend`.
 3. Cargar las variables del backend y database descriptas en [environment-variables.md](./environment-variables.md).
-4. Deployar.
-5. Verificar:
+4. En `FRONTEND_APP_URL` usar `https://time-lend.vercel.app`.
+5. Si queres una transicion sin cortar el dominio anterior, usar `https://time-lend-frontend.vercel.app,https://time-lend.vercel.app`.
+6. Deployar.
+7. Verificar:
    `https://<backend-project>.vercel.app/api/health`
    `https://<backend-project>.vercel.app/api/version`
 
@@ -36,7 +38,7 @@ Notas:
 1. Crear otro proyecto en Vercel con el mismo repositorio.
 2. Configurar `Root Directory = frontend`.
 3. Cargar las variables del frontend.
-4. En `NEXT_PUBLIC_API_URL` usar la URL del backend terminada en `/api`.
+4. En `NEXT_PUBLIC_API_URL` usar la URL del backend terminada en `/api`, no la del frontend.
 5. Deployar.
 
 ## 3. Migraciones
