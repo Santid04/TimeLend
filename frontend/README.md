@@ -1,85 +1,62 @@
-<!-- This file documents the functional demo frontend for TimeLend. -->
-<!-- It exists to explain the exact local setup, real flow and environment variables used by the Next.js app. -->
-<!-- It fits the system by making the demo UI easy to run while preserving the existing backend and contract architecture. -->
-
 # Frontend
 
-Este workspace contiene el frontend DEMO funcional de `TimeLend`. No es el producto final ni la UI definitiva, pero ya permite recorrer el flujo real del sistema para testing end-to-end.
+The frontend workspace contains the operational TimeLend UI built with Next.js App Router. It provides the complete browser-facing demo for wallet authentication, commitment creation, evidence workflows, and dashboard operations.
 
-## Alcance del demo
+## Current Capabilities
 
-La app permite:
+- Wallet connection with Wagmi
+- Challenge-signature authentication against the backend
+- Commitment creation flow with on-chain transaction plus backend registration
+- Dashboard for evidence upload, verification, appeal, and failed finalization
+- Internal demo proxy routes for privileged backend actions
+- Global `EN | ES` toggle for static UI text
 
-- conectar wallet con `wagmi`
-- autenticarse contra el backend por firma
-- crear un commitment on-chain llamando `createCommitment`
-- registrar ese commitment en el backend
-- listar commitments del usuario
-- subir evidencia `.txt` o `.pdf`
-- pedir verificación
-- apelar un fallo
-- resolver apelaciones y finalizar fallos desde controles de demo internos
+## Route Surface
 
-## Estructura
+- `/`: home route with wallet session controls and product overview
+- `/create`: guided commitment creation flow
+- `/dashboard`: commitments dashboard and operational actions
+- `/api/internal/...`: server-side proxy routes used for internal-only backend endpoints
 
-- `app`: rutas App Router y proxies internos del demo
-- `components`: UI mínima para formularios y dashboard
-- `hooks`: estado de wallet, sesión y polling del dashboard
-- `lib`: configuración de entorno, `wagmi` y helpers compartidos
-- `services`: integración con backend y contrato
-- `types`: tipos del frontend consumidos por la demo
+## Key Directories
 
-## Variables de entorno
+- `app`: App Router routes, layout, and internal Next.js route handlers
+- `components`: UI components and route-level content
+- `hooks`: wallet session state, dashboard polling, and on-chain action helpers
+- `lib`: runtime config, utility functions, wagmi config, and i18n support
+- `services`: API and contract integration helpers
+- `types`: frontend-facing domain and API types
 
-Copiá `.env.example` a `.env.local` y completá:
+## Environment Variables
+
+Copy `frontend/.env.example` to `frontend/.env.local` and provide the required values.
 
 ```env
 NEXT_PUBLIC_APP_NAME=TimeLend Demo
 NEXT_PUBLIC_API_URL=http://localhost:4000/api
 NEXT_PUBLIC_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
 NEXT_PUBLIC_CONTRACT_ADDRESS=0x...
-NEXT_PUBLIC_SYSTEM_FAIL_RECEIVER=0xC6C9237FbBC370A898366615eAFcBf0a57Bc72a0
-INTERNAL_API_KEY=tu_clave_interna_del_backend
+NEXT_PUBLIC_SYSTEM_FAIL_RECEIVER=0x...
+INTERNAL_API_KEY=...
 ```
 
-Notas:
+Notes:
 
-- `NEXT_PUBLIC_*` queda disponible en el navegador.
-- `INTERNAL_API_KEY` se usa solo en el servidor Next para proxyear `resolve-appeal` y `finalize-failed`.
-- `NEXT_PUBLIC_API_URL` debe apuntar al backend ya con el prefijo `/api`.
-- `NEXT_PUBLIC_SYSTEM_FAIL_RECEIVER` define la wallet que recibira fondos al finalizar un failure sin apelacion exitosa.
-- El contrato debe estar desplegado y la address debe coincidir con `NEXT_PUBLIC_CONTRACT_ADDRESS`.
+- `NEXT_PUBLIC_API_URL` must point to the backend and include the `/api` suffix
+- `INTERNAL_API_KEY` is server-only and used by internal Next.js proxy routes
+- `NEXT_PUBLIC_SYSTEM_FAIL_RECEIVER` is the default fail receiver shown in the creation flow
+- `NEXT_PUBLIC_CONTRACT_ADDRESS` must match the deployed `TimeLend` contract
 
-## Flujo real del demo
+## Local Development
 
-1. Conectar wallet
-2. Autenticarse con firma
-3. Crear commitment on-chain desde la wallet del usuario
-4. Registrar metadata en el backend
-5. Subir evidencia
-6. Pedir verificación
-7. Refrescar dashboard hasta ver el nuevo estado
-8. Si falla, apelar y luego resolver apelación o finalizar el fallo
-
-## Importante sobre apelaciones
-
-El backend actual solo registra una apelación si ya existe on-chain. Por eso, en este demo la apelación hace dos pasos:
-
-1. llama `appeal()` con la wallet del usuario
-2. sincroniza ese cambio con `POST /commitments/:id/appeal`
-
-Eso mantiene compatibilidad con la arquitectura real existente sin cambiar el backend.
-
-## Comandos
-
-Desde la raíz del monorepo:
+From the monorepo root:
 
 ```bash
 pnpm install
 pnpm --filter frontend dev
 ```
 
-Validación:
+Validation commands:
 
 ```bash
 pnpm --filter frontend lint
@@ -87,10 +64,16 @@ pnpm --filter frontend typecheck
 pnpm --filter frontend build
 ```
 
-## Requisitos previos
+## Deployment Notes
 
-- backend levantado y funcional
-- contrato `TimeLend` desplegado
-- wallet del sistema ya configurada como `backend` en el contrato
-- base de datos lista y migraciones aplicadas
-- MetaMask o provider compatible instalado en el navegador
+For Vercel preview or production deployments:
+
+- `NEXT_PUBLIC_API_URL` must reference the backend Vercel project, not the frontend domain
+- The backend `FRONTEND_APP_URL` value must allow the exact frontend origin by CORS
+- If wallet authentication fails with a network error in preview, the first checks should be the backend URL and CORS origin list
+
+## Functional Notes
+
+- Backend responses, user-generated content, and AI-generated reasoning are rendered as-is
+- The UI localization layer only translates static interface text and frontend-defined labels
+- Contract interactions remain unchanged; the frontend only orchestrates the browser experience around them

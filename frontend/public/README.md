@@ -1,6 +1,16 @@
-<!-- This file documents the role of the public assets folder in the frontend workspace. -->
-<!-- It exists to reserve a clear place for static assets that Next.js will serve directly. -->
-<!-- It fits the system by keeping future icons, illustrations and manifests organized. -->
 # Public Assets
 
-Esta carpeta queda reservada para assets estáticos del frontend, como logos, íconos, manifiestos o recursos descargables.
+This directory stores static assets served directly by Next.js.
+
+## Current Usage
+
+- Brand assets such as `logo.png`
+
+## Recommended Contents
+
+- Favicons and logos
+- Social preview images
+- Downloadable static files
+- Web manifests and browser metadata assets
+
+Static files placed in this directory are available from the frontend root path at runtime.

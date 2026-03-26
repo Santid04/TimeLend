@@ -1,16 +1,23 @@
-# Documentacion de TimeLend
+# TimeLend Documentation
 
-TimeLend queda preparado para desplegarse como dos proyectos separados en Vercel:
+This directory centralizes the technical documentation for local development, architecture, deployment, and API usage.
 
-- `frontend`: Next.js demo listo para consumir el backend productivo.
-- `backend`: API Express servida como Vercel Function catch-all bajo `/api/*`.
+## Index
 
-## Indice
+- [Architecture Overview](./architecture/overview.md)
+- [System Flow](./architecture/system-flow.md)
+- [Folder Structure](./architecture/folder-structure.md)
+- [Local Setup](./development/setup.md)
+- [Deployment On Vercel](./deploy/vercel.md)
+- [Environment Variables](./deploy/environment-variables.md)
+- [Database And Migrations](./deploy/database-and-migrations.md)
+- [API Reference](./api/README.md)
+- [Demo Testing Checklist](./demo/testing-checklist.md)
 
-- [Deploy en Vercel](./deploy/vercel.md)
-- [Variables de entorno](./deploy/environment-variables.md)
-- [Base de datos y migraciones](./deploy/database-and-migrations.md)
-- [API disponible](./api/README.md)
-- [Flujo del sistema](./architecture/system-flow.md)
-- [Checklist de demo](./demo/testing-checklist.md)
-- [Setup local](./development/setup.md)
+## Recommended Reading Order
+
+1. Review the architecture documentation
+2. Complete local setup
+3. Configure environment variables
+4. Deploy frontend and backend separately when needed
+5. Validate the platform using the demo checklist

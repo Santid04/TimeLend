@@ -1,6 +1,11 @@
-<!-- This file explains the role of the shared schemas directory. -->
-<!-- It exists to reserve a visible place for future validation artifacts shared across packages. -->
-<!-- It fits the system by making validation a first-class cross-layer concern from the start. -->
-# Schemas Compartidos
+# Shared Schemas
 
-Los esquemas validados y versionados para frontend, backend e integraciones vivirán en esta capa.
+This directory is reserved for versioned validation schemas shared across multiple TimeLend workspaces.
+
+## Intended Usage
+
+- Shared Zod schemas for API contracts
+- Cross-workspace payload validation
+- Integration-safe request and response contracts
+
+Keeping shared schemas in a dedicated directory helps frontend, backend, and automation tooling evolve against the same validated interfaces.

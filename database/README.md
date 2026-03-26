@@ -1,88 +1,63 @@
-<!-- This file documents the role of the database workspace in the TimeLend monorepo. -->
-<!-- It exists to explain the persistence model, migration workflow and query patterns. -->
-<!-- It fits the system by giving the persistence layer a clear ownership boundary. -->
-
 # Database
 
-Este workspace centraliza Prisma, el esquema relacional completo de TimeLend y el cliente reutilizable para el backend.
+The database workspace contains the Prisma schema, generated client, migrations, and seed utilities used by TimeLend.
 
-## Modelo actual
+## Purpose
 
-- `User`: identidad por wallet, nonce de autenticacion y ownership de commitments/evidence.
-- `Commitment`: agregado principal off-chain sincronizado con `onchainId`, metadata del producto, estados logicos, tx hashes y lock de idempotencia.
-- `Evidence`: archivos y texto extraido usados por la IA.
-- `Verification`: decisiones de IA iniciales y de apelacion con reasoning, confidence y respuesta cruda.
-- `CommitmentEvent`: historial append-only de transiciones y eventos relevantes.
+This package centralizes the relational model that supports wallet users, commitments, evidence, AI verification history, and lifecycle events.
 
-## Estados
+## Core Models
 
-- `ACTIVE`
-- `FAILED_PENDING_APPEAL`
-- `COMPLETED`
-- `FAILED_FINAL`
+- `User`: wallet identity, nonce, and ownership of commitments
+- `Commitment`: off-chain lifecycle aggregate linked to `onchainId`
+- `Evidence`: uploaded files, extracted text, and written proof
+- `Verification`: AI decisions for initial and appeal flows
+- `CommitmentEvent`: append-only history of relevant lifecycle transitions
 
-## Consistencia con contrato
+## Status Mapping
 
-- `Active` on-chain -> `ACTIVE`
-- `markFailed` -> `FAILED_PENDING_APPEAL`
-- `markCompleted` -> `COMPLETED`
-- `resolveAppeal(true)` -> `COMPLETED`
-- `resolveAppeal(false)` -> `FAILED_FINAL`
-- `finalizeFailedCommitment` -> `FAILED_FINAL`
+- `ACTIVE`: commitment created and synchronized successfully
+- `FAILED_PENDING_APPEAL`: failed result with an active appeal window
+- `COMPLETED`: successful settlement
+- `FAILED_FINAL`: final failed settlement after appeal resolution or timeout
 
-## Comandos utiles
+## Commands
 
 ```bash
 pnpm --filter @timelend/database prisma:generate
 pnpm --filter @timelend/database prisma:migrate:dev
 pnpm --filter @timelend/database prisma:migrate:deploy
 pnpm --filter @timelend/database prisma:push
+pnpm --filter @timelend/database prisma:studio
 pnpm --filter @timelend/database build
 ```
 
-## Produccion con Neon
+## Environment Variables
 
-- `DATABASE_URL`: URL pooled para runtime serverless.
-- `DIRECT_URL`: URL directa para `prisma migrate deploy`.
+Copy `database/.env.example` to `database/.env`.
 
-## Nota de migracion local
+Required values:
 
-- Si tu base local venia de una version previa creada con `prisma db push`, Prisma puede detectar drift al correr `migrate dev`.
-- En ese caso, para un entorno de desarrollo desechable, lo correcto es resetear y volver a aplicar:
+- `DATABASE_URL`: pooled connection string for runtime
+- `DIRECT_URL`: direct connection string for Prisma migrations
+
+## Recommended Workflow
+
+Local development:
 
 ```bash
-pnpm --filter @timelend/database exec prisma migrate reset
-pnpm --filter @timelend/database prisma:migrate:dev
+pnpm db:generate
+pnpm db:migrate:dev
 ```
 
-## Ejemplos de consultas
+Production deployment:
 
-```ts
-const commitment = await prisma.commitment.findUnique({
-  where: { id: commitmentId },
-  include: {
-    evidences: { orderBy: { createdAt: "desc" } },
-    events: { orderBy: { createdAt: "desc" } },
-    user: true,
-    verifications: { orderBy: { createdAt: "desc" } },
-  },
-});
+```bash
+pnpm db:migrate:deploy
 ```
 
-```ts
-const pendingFinalizations = await prisma.commitment.findMany({
-  where: {
-    appealWindowEndsAt: { lte: new Date() },
-    appealed: false,
-    isProcessing: false,
-    status: "FAILED_PENDING_APPEAL",
-  },
-});
-```
+## Notes
 
-## Evolucion prevista
-
-- migraciones incrementales por nuevas reglas de negocio
-- almacenamiento externo de evidencias
-- jobs persistentes o colas distribuidas
-- analytics y reporting de decisiones y verificaciones
+- Neon is the expected production database target
+- Migration history is tracked under `database/prisma/migrations`
+- The generated Prisma client is consumed by the backend through the `@timelend/database` workspace package

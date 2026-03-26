@@ -1,13 +1,13 @@
-# API TimeLend
+# TimeLend API Reference
 
-Base URL del backend:
+Base backend URLs:
 
-- local: `http://localhost:4000/api`
-- produccion: `https://<backend-project>.vercel.app/api`
+- Local: `http://localhost:4000/api`
+- Vercel: `https://<backend-project>.vercel.app/api`
 
-## Respuesta de error
+## Error Format
 
-Todas las rutas devuelven errores JSON con esta forma:
+All routes return JSON errors in the following shape:
 
 ```json
 {
@@ -17,59 +17,58 @@ Todas las rutas devuelven errores JSON con esta forma:
 }
 ```
 
-## Publicas
+## Public Endpoints
 
 - `GET /api/health`
-  Devuelve estado del servicio.
+  Returns service health information.
 - `GET /api/version`
-  Devuelve version del backend y runtime.
+  Returns backend version and runtime metadata.
 - `POST /api/auth/challenge`
   Body: `{ "walletAddress": "0x..." }`
-  Emite el challenge a firmar.
+  Issues the wallet challenge to be signed.
 - `POST /api/auth/verify-signature`
   Body: `{ "walletAddress": "0x...", "signature": "0x..." }`
-  Verifica la firma y devuelve el JWT.
+  Verifies the signed challenge and returns a JWT.
 
-## Auth por wallet
+## Authenticated Endpoints
 
-Estas rutas requieren `Authorization: Bearer <jwt>`.
+These routes require `Authorization: Bearer <jwt>`.
 
 - `POST /api/commitments`
-  Registra off-chain un commitment ya creado on-chain.
+  Registers an off-chain commitment that already exists on-chain.
 - `GET /api/commitments/:wallet`
-  Lista commitments de la wallet autenticada.
+  Lists commitments owned by the authenticated wallet.
 - `POST /api/commitments/:id/evidence`
-  Multipart form-data.
-  Campos admitidos: `file` (`.pdf` o `.txt`) y/o `textEvidence`.
+  Multipart form-data endpoint. Accepts `file` (`.pdf` or `.txt`) and/or `textEvidence`.
 - `POST /api/commitments/:id/verify`
-  Encola la verificacion inicial.
+  Queues the initial verification workflow.
 - `POST /api/commitments/:id/appeal`
-  Registra una apelacion ya consumida on-chain por el usuario.
+  Registers an appeal that the user already consumed on-chain.
 
-## Internas
+## Internal Endpoints
 
-Estas rutas requieren `x-internal-api-key: <INTERNAL_API_KEY>`.
+These routes require `x-internal-api-key: <INTERNAL_API_KEY>`.
 
 - `POST /api/commitments/:id/resolve-appeal`
-  Encola la resolucion de apelacion.
+  Triggers appeal resolution.
 - `POST /api/commitments/:id/finalize-failed`
-  Finaliza manualmente un failure sin apelacion.
+  Finalizes a failed commitment without appeal.
 - `POST /api/commitments/:id/finalize`
-  Alias de compatibilidad hacia `finalize-failed`.
+  Compatibility alias for `finalize-failed`.
 
-## Automatizacion
+## Automation Endpoints
 
-Estas rutas aceptan:
+These routes accept either:
 
 - `x-internal-api-key: <INTERNAL_API_KEY>`
-- o `Authorization: Bearer <CRON_SECRET>`
+- `Authorization: Bearer <CRON_SECRET>`
 
-Rutas:
+Routes:
 
 - `GET /api/automation/finalize-expired-failures`
 - `POST /api/automation/finalize-expired-failures`
 
-Respuesta:
+Example response:
 
 ```json
 {

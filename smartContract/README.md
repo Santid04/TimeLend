@@ -1,41 +1,39 @@
-<!-- This file documents the definitive smart contract layer of TimeLend. -->
-<!-- It exists to explain the production-oriented design choices used in the contract, tests and deploy workflow. -->
-<!-- It fits the system by giving backend and frontend teams one clear on-chain contract to integrate with. -->
 # Smart Contract
 
-Este workspace usa `Hardhat + Solidity` para la capa on-chain definitiva de `TimeLend`.
+The smart contract workspace contains the Solidity implementation of the TimeLend escrow lifecycle together with Hardhat-based tests, deployment scripts, and ABI export tooling.
 
-## Contrato principal
+## Main Contract
 
 - `contracts/TimeLend.sol`
 
-## Capacidades actuales
+## Current Capabilities
 
-- creacion de commitments con stake nativo
-- custodia on-chain de fondos
-- resolucion exitosa por backend
-- flujo de fallo con ventana de apelacion
-- una unica apelacion por commitment
-- finalizacion segura de fallos
-- control de acceso por backend rotado por owner
-- exportacion de ABI compartida hacia `shared/abi/TimeLend.json`
+- Native AVAX commitment creation
+- Custody of escrowed funds until final resolution
+- Success settlement controlled by the system wallet
+- Failed settlement with an appeal window
+- One appeal per commitment
+- Finalization path for failed commitments without appeal
+- Rotatable backend/system wallet managed by the owner
+- ABI export to `shared/abi/TimeLend.json`
 
-## Nota de diseno importante
+## Lifecycle Design
 
-Para que una apelacion exitosa sea posible sin dejar al contrato insolvente, el contrato separa dos caminos de failure:
+The contract separates failed outcomes into two safe paths:
 
-1. si el failure admite apelacion:
-   el backend usa `markFailed`
-   se abre una ventana de apelacion
-   si el usuario apela, el backend resuelve la apelacion
-   si no apela, el backend finaliza el failure y recien ahi se paga al `failReceiver`
-2. si el failure es definitivo y no admite apelacion:
-   el backend usa `markFailedFinal`
-   los fondos se transfieren inmediatamente al `failReceiver`
+1. Appealable failure
+   - Backend marks the commitment as failed
+   - An appeal window opens
+   - The user may consume the appeal on-chain
+   - Funds are only released after appeal resolution or finalization
 
-Esta extension es deliberada y necesaria para un sistema seguro.
+2. Final failure
+   - The backend can settle immediately when no appeal path should remain
+   - Funds are transferred to the configured fail receiver
 
-## Comandos
+This separation prevents insolvency scenarios during appeal handling.
+
+## Commands
 
 ```bash
 pnpm --filter smartContract compile
@@ -44,8 +42,20 @@ pnpm --filter smartContract abi:export
 pnpm --filter smartContract deploy:fuji
 ```
 
-## Nota operativa
+## Environment Variables
 
-- Los tests siempre corren sobre la red local de Hardhat.
-- El deploy a Fuji debe ejecutarse de forma explicita con `deploy:fuji`.
-- Esto evita que un `.env` local con variables de despliegue rompa la suite de tests.
+Copy `smartContract/.env.example` to `smartContract/.env`.
+
+Relevant values:
+
+- `FUJI_RPC_URL`
+- `DEPLOYER_PRIVATE_KEY`
+- `INITIAL_OWNER_ADDRESS`
+- `BACKEND_WALLET_ADDRESS`
+- `APPEAL_WINDOW_SECONDS`
+
+## Operational Notes
+
+- Tests run on the local Hardhat network
+- Fuji deployment is explicit and isolated behind `deploy:fuji`
+- ABI export should be executed after contract changes so frontend and backend consume the updated artifact

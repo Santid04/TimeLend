@@ -1,10 +1,15 @@
-<!-- This file explains the role of the shared ABI directory. -->
-<!-- It exists to document the location where compiled contract ABIs are exported for cross-workspace consumption. -->
-<!-- It fits the system by giving frontend and backend one stable import path for on-chain artifacts. -->
-# ABI Compartida
+# Shared ABI
 
-Los artefactos ABI exportados desde `smartContract/scripts/export-abi.ts` se escriben en esta carpeta.
+This directory contains ABI artifacts exported from the smart contract workspace for consumption by the frontend and backend.
 
-Artefacto principal actual:
+## Current Artifact
 
 - `TimeLend.json`
+
+## Source Of Truth
+
+The ABI is generated from the Hardhat workspace in `smartContract` and should be refreshed after contract-level changes by running:
+
+```bash
+pnpm contracts:export-abi
+```

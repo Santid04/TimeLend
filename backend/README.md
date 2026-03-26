@@ -1,84 +1,106 @@
-<!-- This file documents the scope and structure of the backend workspace. -->
-<!-- It exists to explain how the backend orchestrates auth, AI, uploads, database state and blockchain resolution. -->
-<!-- It fits the system by making the core application layer of TimeLend auditable and maintainable. -->
-
 # Backend
 
-API Express modular adaptada al runtime Express de Vercel con rutas publicas bajo `/api/*`.
+The backend workspace contains the TimeLend HTTP API and application orchestration layer. It is responsible for wallet authentication, off-chain persistence, evidence ingestion, AI verification, privileged blockchain actions, and automation endpoints.
 
-## Flujo on-chain soportado
+## Responsibilities
 
-- `createCommitment` es una transaccion firmada por la wallet del usuario contra el contrato.
-- El backend no vuelve a crear el commitment on-chain: valida el `onchainId` recibido y sincroniza la metadata off-chain.
-- `appeal` tambien nace on-chain desde la wallet del usuario; el backend registra esa apelacion en la base luego de verificar el estado real del contrato.
-- `markCompleted`, `markFailed`, `resolveAppeal` y `finalizeFailedCommitment` son llamadas exclusivas de la wallet del sistema.
-- `markFailedFinal` permite cerrar y pagar inmediatamente los failures claros que no admiten apelacion.
-- El backend persiste metadata off-chain, evidencia, verificaciones de IA, historial de eventos y hashes de transacciones.
-- En local, la verificacion y la resolucion de apelaciones usan una cola en memoria.
-- En Vercel, esas mismas acciones usan background work serverless con `waitUntil()`.
-- La base de datos es la source of truth del estado logico del producto, mientras que el contrato sigue siendo la source of truth de los fondos.
+- Issue and verify wallet authentication challenges
+- Persist commitment metadata, evidence, verification history, and lifecycle events
+- Synchronize off-chain state with the on-chain contract
+- Trigger AI verification flows
+- Execute or coordinate privileged settlement actions with the system wallet
+- Expose internal and automation endpoints for appeals and failed finalization
 
-## Estructura base
+## Lifecycle Model
 
-- `src/config`: variables de entorno y utilidades transversales
-- `src/routes`: definicion de endpoints
-- `src/controllers`: capa HTTP y serializacion de respuestas
-- `src/services`: logica de aplicacion reusable
-- `src/jobs`: cola simple y procesos en segundo plano
-- `src/middlewares`: auth, validacion, uploads, errores y rutas no encontradas
-- `src/modules`: composicion del grafo de dependencias
-- `src/utils`: helpers internos
-- `src/types`: contratos internos del backend
-- `api`: entrypoint catch-all para Vercel
+The backend uses PostgreSQL as the source of truth for logical workflow state while the contract remains the source of truth for funds.
 
-## Endpoints principales
+Supported statuses:
+
+- `ACTIVE`
+- `FAILED_PENDING_APPEAL`
+- `COMPLETED`
+- `FAILED_FINAL`
+
+## API Surface
+
+Public endpoints:
 
 - `GET /api/health`
 - `GET /api/version`
 - `POST /api/auth/challenge`
 - `POST /api/auth/verify-signature`
+
+Authenticated endpoints:
+
 - `POST /api/commitments`
 - `GET /api/commitments/:wallet`
 - `POST /api/commitments/:id/evidence`
 - `POST /api/commitments/:id/verify`
 - `POST /api/commitments/:id/appeal`
+
+Internal endpoints:
+
 - `POST /api/commitments/:id/resolve-appeal`
 - `POST /api/commitments/:id/finalize-failed`
+- `POST /api/commitments/:id/finalize`
+
+Automation endpoints:
+
 - `GET /api/automation/finalize-expired-failures`
+- `POST /api/automation/finalize-expired-failures`
 
-## Flujo de persistencia
+Additional details are available in [docs/api/README.md](../docs/api/README.md).
 
-- `ACTIVE`: el commitment existe on-chain y ya fue sincronizado a PostgreSQL.
-- `FAILED_PENDING_APPEAL`: el backend marco fallo en el contrato y todavia existe una ventana de apelacion.
-- `COMPLETED`: el backend resolvio exito inicial o de apelacion y el contrato devolvio fondos al usuario.
-- `FAILED_FINAL`: el contrato ya resolvio definitivamente el fallo por rechazo de apelacion o finalizacion sin apelacion.
+## Key Directories
 
-## Idempotencia y consistencia
+- `src/config`: environment validation and shared runtime config
+- `src/routes`: route registration modules
+- `src/controllers`: HTTP controllers and response shaping
+- `src/services`: application and domain orchestration
+- `src/jobs`: in-memory and serverless background work helpers
+- `src/middlewares`: auth, validation, upload, and error handling
+- `src/modules`: dependency graph composition
+- `src/utils`: internal helpers
 
-- `isProcessing` y `processingStartedAt` bloquean dobles verificaciones, dobles resoluciones y dobles finalizaciones.
-- Cada cambio importante se registra en `CommitmentEvent` para auditoria.
-- Cada decision de IA se persiste en `Verification` con `type`, `confidence`, `reasoning`, `provider`, `model` y `rawResponse`.
-- El backend consulta el contrato antes de aceptar el sync inicial y antes de registrar una apelacion, para no guardar metadata inconsistente.
+## Environment Variables
 
-## Variables de entorno clave
+Copy `backend/.env.example` to `backend/.env`.
 
-- `DATABASE_URL`
-- `RPC_URL`
-- `PRIVATE_KEY`
-- `TIME_LEND_CONTRACT_ADDRESS`
-- `GEMINI_API_KEY`
-- `JWT_SECRET`
-- `INTERNAL_API_KEY`
-- `BLOB_READ_WRITE_TOKEN`
-- `CRON_SECRET`
+Key values:
 
-## Comandos utiles
+- `FRONTEND_APP_URL`: exact frontend origin or comma-separated list of allowed origins
+- `DATABASE_URL`: runtime PostgreSQL connection string
+- `PRIVATE_KEY`: system wallet private key
+- `RPC_URL`: Avalanche Fuji RPC endpoint
+- `TIME_LEND_CONTRACT_ADDRESS`: deployed contract address
+- `JWT_SECRET`: wallet auth signing secret
+- `INTERNAL_API_KEY`: secret for internal-only routes
+- `CRON_SECRET`: secret for automation endpoints
+
+## Local Development
+
+From the monorepo root:
 
 ```bash
-pnpm --filter @timelend/database prisma:generate
-pnpm --filter @timelend/database prisma:migrate:deploy
+pnpm install
 pnpm --filter backend dev
+```
+
+Validation commands:
+
+```bash
 pnpm --filter backend lint
 pnpm --filter backend typecheck
 pnpm --filter backend build
 ```
+
+## Deployment Notes
+
+The backend is designed for a dedicated Vercel project with `Root Directory = backend`.
+
+For preview and production:
+
+- `FRONTEND_APP_URL` must include every frontend origin that should be allowed by CORS
+- Preview deployments often require adding the temporary Vercel frontend URL explicitly
+- Frontend authentication calls will fail at network level if the frontend origin is not allowed by CORS
